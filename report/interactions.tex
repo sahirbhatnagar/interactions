@@ -130,72 +130,52 @@ Trying to code the Strong Heredity Interaction Model (SHIM) in~\cite{choi2010var
 \definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
 \begin{alltt}
 \hlkwd{set.seed}\hlstd{(}\hlnum{123456}\hlstd{)}
-\hlstd{p} \hlkwb{=} \hlnum{10}  \hlcom{# number of predictors}
-\hlstd{n} \hlkwb{=} \hlnum{200}  \hlcom{# number of test subjects}
-\hlstd{m} \hlkwb{=} \hlnum{200}  \hlcom{# number of validation subjects}
+
+\hlcom{# number of predictors}
+\hlstd{p} \hlkwb{=} \hlnum{10}
+
+\hlcom{# number of test subjects}
+\hlstd{n} \hlkwb{=} \hlnum{200}
+
+\hlcom{# correlation between X's}
 \hlstd{rho} \hlkwb{=} \hlnum{0.5}
+
+\hlcom{# signal to noise ratio}
 \hlstd{signal_to_noise_ratio} \hlkwb{=} \hlnum{4}
 
-\hlstd{main_effect_names} \hlkwb{<-} \hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{p)}  \hlcom{# names of the main effects}
+\hlcom{# names of the main effects, this will be used in many of the}
+\hlcom{# functions}
+\hlstd{main_effect_names} \hlkwb{<-} \hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{p)}
+
 \hlcom{# names of the active set}
 \hlstd{true_var_names} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"x1"}\hlstd{,} \hlstr{"x2"}\hlstd{,} \hlstr{"x3"}\hlstd{,} \hlstr{"x4"}\hlstd{,} \hlstr{"x1:x2"}\hlstd{,} \hlstr{"x1:x3"}\hlstd{,}
     \hlstr{"x1:x4"}\hlstd{,} \hlstr{"x2:x3"}\hlstd{,} \hlstr{"x2:x4"}\hlstd{,} \hlstr{"x3:x4"}\hlstd{)}
+
+\hlcom{# different true coefficient vectors as in Table 1 of Choi et}
+\hlcom{# al.}
 \hlstd{beta1} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 \hlstd{beta2} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0.5}\hlstd{,} \hlnum{0.4}\hlstd{,} \hlnum{0.1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 \hlstd{beta3} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 \hlstd{beta4} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{4}\hlstd{,} \hlnum{4}\hlstd{,} \hlnum{2}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 \hlstd{beta5} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 
-
-\hlcom{# simulate Toeplitz like structure}
+\hlcom{# simulate Toeplitz like correlation structure between X's}
 \hlstd{H} \hlkwb{<-} \hlkwd{abs}\hlstd{(}\hlkwd{outer}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{p,} \hlnum{1}\hlopt{:}\hlstd{p,} \hlstr{"-"}\hlstd{))}
 \hlstd{cor} \hlkwb{<-} \hlstd{rho}\hlopt{^}\hlstd{H}
 
+\hlcom{# generate X's from multivariate normal and label the matrix}
 \hlstd{DT} \hlkwb{<-} \hlstd{MASS}\hlopt{::}\hlkwd{mvrnorm}\hlstd{(}\hlkwc{n} \hlstd{= n,} \hlkwc{mu} \hlstd{=} \hlkwd{rep}\hlstd{(}\hlnum{0}\hlstd{, p),} \hlkwc{Sigma} \hlstd{= cor)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_colnames}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,}
     \hlnum{1}\hlopt{:}\hlstd{p))} \hlopt{%>%} \hlkwd{set_rownames}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Subject"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{n))}
-\hlkwd{head}\hlstd{(DT)}
-\end{alltt}
-\begin{verbatim}
-##             x1    x2    x3    x4    x5     x6     x7    x8
-## Subject1 -0.16 -0.92 -1.54 -0.79 -1.04 -0.148  0.257 -0.28
-## Subject2  0.37  0.28  0.36 -0.69  0.60 -0.151  0.011  0.73
-## Subject3  0.71  1.10  1.26 -0.19 -0.83  0.323 -0.223  1.16
-## Subject4 -0.44  0.66  0.44  0.50  0.33  0.025 -1.229 -0.99
-## Subject5  1.30  0.15 -0.82 -1.04 -1.32 -1.796 -0.782 -1.47
-## Subject6 -0.82 -1.71  0.93  0.87 -0.09 -0.321 -0.616 -1.68
-##              x9   x10
-## Subject1 -0.267  1.28
-## Subject2 -0.098  0.32
-## Subject3 -1.157  0.17
-## Subject4  0.597 -0.48
-## Subject5 -3.419 -2.32
-## Subject6 -0.901 -1.24
-\end{verbatim}
-\begin{alltt}
+
 \hlcom{# create X matrix which contains all main effects and}
-\hlcom{# interactions each column is standardized to mean 0 and sd 1}
+\hlcom{# interactions but not the intercept each column is}
+\hlcom{# standardized to mean 0 and sd 1}
 \hlstd{X} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlkwd{as.formula}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"~("}\hlstd{,} \hlkwd{paste0}\hlstd{(main_effect_names,}
-    \hlkwc{collapse} \hlstd{=} \hlstr{"+"}\hlstd{),} \hlstr{")^2-1"}\hlstd{)), DT} \hlopt{%>%} \hlkwd{as.data.frame}\hlstd{())} \hlopt{%>%} \hlstd{scale}
-\hlkwd{crossprod}\hlstd{(X)} \hlopt{%>%} \hlstd{diag}
-\end{alltt}
-\begin{verbatim}
-##     x1     x2     x3     x4     x5     x6     x7     x8 
-##    199    199    199    199    199    199    199    199 
-##     x9    x10  x1:x2  x1:x3  x1:x4  x1:x5  x1:x6  x1:x7 
-##    199    199    199    199    199    199    199    199 
-##  x1:x8  x1:x9 x1:x10  x2:x3  x2:x4  x2:x5  x2:x6  x2:x7 
-##    199    199    199    199    199    199    199    199 
-##  x2:x8  x2:x9 x2:x10  x3:x4  x3:x5  x3:x6  x3:x7  x3:x8 
-##    199    199    199    199    199    199    199    199 
-##  x3:x9 x3:x10  x4:x5  x4:x6  x4:x7  x4:x8  x4:x9 x4:x10 
-##    199    199    199    199    199    199    199    199 
-##  x5:x6  x5:x7  x5:x8  x5:x9 x5:x10  x6:x7  x6:x8  x6:x9 
-##    199    199    199    199    199    199    199    199 
-## x6:x10  x7:x8  x7:x9 x7:x10  x8:x9 x8:x10 x9:x10 
-##    199    199    199    199    199    199    199
-\end{verbatim}
-\begin{alltt}
-\hlkwd{apply}\hlstd{(X,} \hlnum{2}\hlstd{, mean)} \hlopt{%>%} \hlstd{sum}
+    \hlkwc{collapse} \hlstd{=} \hlstr{"+"}\hlstd{),} \hlstr{")^2-1"}\hlstd{)),} \hlkwc{data} \hlstd{= DT} \hlopt{%>%} \hlkwd{as.data.frame}\hlstd{())} \hlopt{%>%}
+    \hlstd{scale}
+
+\hlcom{# check that means of columns are 0 and sd 1}
+\hlkwd{colMeans}\hlstd{(X)} \hlopt{%>%} \hlstd{sum}
 \end{alltt}
 \begin{verbatim}
 ## [1] 1.6e-16
@@ -207,27 +187,15 @@ Trying to code the Strong Heredity Interaction Model (SHIM) in~\cite{choi2010var
 ## [1] 55
 \end{verbatim}
 \begin{alltt}
-\hlcom{# # alternative, according to Bien et al 2013, they first}
-\hlcom{# standardize the main effects, # then take all pairwise}
-\hlcom{# products for interactions, then center those products #}
-\hlcom{# first scale the main effects X_temp <- DT %>% scale}
-\hlcom{# apply(X_temp, 2, mean) %>% sum apply(X_temp, 2, sd) %>% sum}
-\hlcom{# # then create all pairwise interactions X_temp_2 <-}
-\hlcom{# model.matrix(as.formula(paste0('~(',paste0(main_effect_names,}
-\hlcom{# collapse = '+'),')^2-1')), X %>% as.data.frame())}
-\hlcom{# apply(X_temp_2[,(p+1):ncol(X_temp_2)], 2, sd) %>% hist}
-\hlcom{# apply(X_temp_2[,(p+1):ncol(X_temp_2)], 2, mean) %>% hist #}
-\hlcom{# then center the product terms and combine with standardized}
-\hlcom{# main effects X <- cbind(X_temp_2[,1:p],}
-\hlcom{# scale(X_temp_2[,(p+1):ncol(X_temp_2)], center = T, scale =}
-\hlcom{# F)) dim(X) str(X) X %>% crossprod() %>% diag}
-
+\hlcom{# generate response with user defined signal to noise ratio}
+\hlcom{# and center the response}
 \hlstd{y.star} \hlkwb{<-} \hlstd{X[,} \hlkwd{names}\hlstd{(beta4)]} \hlopt{%*%} \hlstd{beta4}
 \hlstd{error} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(n)}
 \hlstd{k} \hlkwb{<-} \hlkwd{sqrt}\hlstd{(}\hlkwd{var}\hlstd{(y.star)}\hlopt{/}\hlstd{(signal_to_noise_ratio} \hlopt{*} \hlkwd{var}\hlstd{(error)))}
 \hlstd{Y} \hlkwb{<-} \hlstd{(y.star} \hlopt{+} \hlstd{k} \hlopt{*} \hlstd{error)} \hlopt{%>%} \hlkwd{scale}\hlstd{(}\hlkwc{center} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{scale} \hlstd{=} \hlnum{FALSE}\hlstd{)}
 \hlkwd{colnames}\hlstd{(Y)} \hlkwb{<-} \hlstr{"Y"}
 
+\hlcom{# record mean of response before centering}
 \hlstd{(b0} \hlkwb{<-} \hlkwd{mean}\hlstd{(y.star} \hlopt{+} \hlstd{k} \hlopt{*} \hlstd{error))}
 \end{alltt}
 \begin{verbatim}
@@ -235,7 +203,7 @@ Trying to code the Strong Heredity Interaction Model (SHIM) in~\cite{choi2010var
 \end{verbatim}
 \begin{alltt}
 \hlcom{# names of interaction variables assuming interaction terms}
-\hlcom{# contain a ':'}
+\hlcom{# contain a ':' this will be used in many of the functions}
 \hlstd{interaction_names} \hlkwb{<-} \hlkwd{colnames}\hlstd{(X)} \hlopt{%>%} \hlkwd{grep}\hlstd{(}\hlstr{":"}\hlstd{, .,} \hlkwc{value} \hlstd{= T)}
 \end{alltt}
 \end{kframe}
@@ -297,66 +265,72 @@ Trying to code the Strong Heredity Interaction Model (SHIM) in~\cite{choi2010var
     \hlkwd{getPckg}\hlstd{(}\hlstr{"plyr"}\hlstd{)}
     \hlkwd{require}\hlstd{(plyr)}
 \hlstd{\}}
+\hlcom{################################## R source code file used to create simulated data from Choi}
+\hlcom{################################## et al 2009 JASA Created by Sahir, November 5, 2015 Updated}
+\hlcom{################################## Dec 6th, 2015 hosted on Github repo}
+\hlcom{################################## 'sahirbhatnagar/interactions' NOTE:}
 \hlkwd{set.seed}\hlstd{(}\hlnum{123456}\hlstd{)}
-\hlstd{p} \hlkwb{=} \hlnum{10}  \hlcom{# number of predictors}
-\hlstd{n} \hlkwb{=} \hlnum{200}  \hlcom{# number of test subjects}
-\hlstd{m} \hlkwb{=} \hlnum{200}  \hlcom{# number of validation subjects}
+
+\hlcom{# number of predictors}
+\hlstd{p} \hlkwb{=} \hlnum{10}
+
+\hlcom{# number of test subjects}
+\hlstd{n} \hlkwb{=} \hlnum{200}
+
+\hlcom{# correlation between X's}
 \hlstd{rho} \hlkwb{=} \hlnum{0.5}
+
+\hlcom{# signal to noise ratio}
 \hlstd{signal_to_noise_ratio} \hlkwb{=} \hlnum{4}
 
-\hlstd{main_effect_names} \hlkwb{<-} \hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{p)}  \hlcom{# names of the main effects}
+\hlcom{# names of the main effects, this will be used in many of the}
+\hlcom{# functions}
+\hlstd{main_effect_names} \hlkwb{<-} \hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{p)}
+
 \hlcom{# names of the active set}
 \hlstd{true_var_names} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"x1"}\hlstd{,} \hlstr{"x2"}\hlstd{,} \hlstr{"x3"}\hlstd{,} \hlstr{"x4"}\hlstd{,} \hlstr{"x1:x2"}\hlstd{,} \hlstr{"x1:x3"}\hlstd{,}
     \hlstr{"x1:x4"}\hlstd{,} \hlstr{"x2:x3"}\hlstd{,} \hlstr{"x2:x4"}\hlstd{,} \hlstr{"x3:x4"}\hlstd{)}
+
+\hlcom{# different true coefficient vectors as in Table 1 of Choi et}
+\hlcom{# al.}
 \hlstd{beta1} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 \hlstd{beta2} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0.5}\hlstd{,} \hlnum{0.4}\hlstd{,} \hlnum{0.1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 \hlstd{beta3} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 \hlstd{beta4} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{4}\hlstd{,} \hlnum{4}\hlstd{,} \hlnum{2}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 \hlstd{beta5} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
 
-
-\hlcom{# simulate Toeplitz like structure}
+\hlcom{# simulate Toeplitz like correlation structure between X's}
 \hlstd{H} \hlkwb{<-} \hlkwd{abs}\hlstd{(}\hlkwd{outer}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{p,} \hlnum{1}\hlopt{:}\hlstd{p,} \hlstr{"-"}\hlstd{))}
 \hlstd{cor} \hlkwb{<-} \hlstd{rho}\hlopt{^}\hlstd{H}
 
+\hlcom{# generate X's from multivariate normal and label the matrix}
 \hlstd{DT} \hlkwb{<-} \hlstd{MASS}\hlopt{::}\hlkwd{mvrnorm}\hlstd{(}\hlkwc{n} \hlstd{= n,} \hlkwc{mu} \hlstd{=} \hlkwd{rep}\hlstd{(}\hlnum{0}\hlstd{, p),} \hlkwc{Sigma} \hlstd{= cor)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_colnames}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,}
     \hlnum{1}\hlopt{:}\hlstd{p))} \hlopt{%>%} \hlkwd{set_rownames}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Subject"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{n))}
-\hlkwd{head}\hlstd{(DT)}
 
 \hlcom{# create X matrix which contains all main effects and}
-\hlcom{# interactions each column is standardized to mean 0 and sd 1}
+\hlcom{# interactions but not the intercept each column is}
+\hlcom{# standardized to mean 0 and sd 1}
 \hlstd{X} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlkwd{as.formula}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"~("}\hlstd{,} \hlkwd{paste0}\hlstd{(main_effect_names,}
-    \hlkwc{collapse} \hlstd{=} \hlstr{"+"}\hlstd{),} \hlstr{")^2-1"}\hlstd{)), DT} \hlopt{%>%} \hlkwd{as.data.frame}\hlstd{())} \hlopt{%>%} \hlstd{scale}
-\hlkwd{crossprod}\hlstd{(X)} \hlopt{%>%} \hlstd{diag}
+    \hlkwc{collapse} \hlstd{=} \hlstr{"+"}\hlstd{),} \hlstr{")^2-1"}\hlstd{)),} \hlkwc{data} \hlstd{= DT} \hlopt{%>%} \hlkwd{as.data.frame}\hlstd{())} \hlopt{%>%}
+    \hlstd{scale}
 
-\hlkwd{apply}\hlstd{(X,} \hlnum{2}\hlstd{, mean)} \hlopt{%>%} \hlstd{sum}
+\hlcom{# check that means of columns are 0 and sd 1}
+\hlkwd{colMeans}\hlstd{(X)} \hlopt{%>%} \hlstd{sum}
 \hlkwd{apply}\hlstd{(X,} \hlnum{2}\hlstd{, sd)} \hlopt{%>%} \hlstd{sum}
 
-\hlcom{# # alternative, according to Bien et al 2013, they first}
-\hlcom{# standardize the main effects, # then take all pairwise}
-\hlcom{# products for interactions, then center those products #}
-\hlcom{# first scale the main effects X_temp <- DT %>% scale}
-\hlcom{# apply(X_temp, 2, mean) %>% sum apply(X_temp, 2, sd) %>% sum}
-\hlcom{# # then create all pairwise interactions X_temp_2 <-}
-\hlcom{# model.matrix(as.formula(paste0('~(',paste0(main_effect_names,}
-\hlcom{# collapse = '+'),')^2-1')), X %>% as.data.frame())}
-\hlcom{# apply(X_temp_2[,(p+1):ncol(X_temp_2)], 2, sd) %>% hist}
-\hlcom{# apply(X_temp_2[,(p+1):ncol(X_temp_2)], 2, mean) %>% hist #}
-\hlcom{# then center the product terms and combine with standardized}
-\hlcom{# main effects X <- cbind(X_temp_2[,1:p],}
-\hlcom{# scale(X_temp_2[,(p+1):ncol(X_temp_2)], center = T, scale =}
-\hlcom{# F)) dim(X) str(X) X %>% crossprod() %>% diag}
-
+\hlcom{# generate response with user defined signal to noise ratio}
+\hlcom{# and center the response}
 \hlstd{y.star} \hlkwb{<-} \hlstd{X[,} \hlkwd{names}\hlstd{(beta4)]} \hlopt{%*%} \hlstd{beta4}
 \hlstd{error} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(n)}
 \hlstd{k} \hlkwb{<-} \hlkwd{sqrt}\hlstd{(}\hlkwd{var}\hlstd{(y.star)}\hlopt{/}\hlstd{(signal_to_noise_ratio} \hlopt{*} \hlkwd{var}\hlstd{(error)))}
 \hlstd{Y} \hlkwb{<-} \hlstd{(y.star} \hlopt{+} \hlstd{k} \hlopt{*} \hlstd{error)} \hlopt{%>%} \hlkwd{scale}\hlstd{(}\hlkwc{center} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{scale} \hlstd{=} \hlnum{FALSE}\hlstd{)}
 \hlkwd{colnames}\hlstd{(Y)} \hlkwb{<-} \hlstr{"Y"}
 
+\hlcom{# record mean of response before centering}
 \hlstd{(b0} \hlkwb{<-} \hlkwd{mean}\hlstd{(y.star} \hlopt{+} \hlstd{k} \hlopt{*} \hlstd{error))}
 
 \hlcom{# names of interaction variables assuming interaction terms}
-\hlcom{# contain a ':'}
+\hlcom{# contain a ':' this will be used in many of the functions}
 \hlstd{interaction_names} \hlkwb{<-} \hlkwd{colnames}\hlstd{(X)} \hlopt{%>%} \hlkwd{grep}\hlstd{(}\hlstr{":"}\hlstd{, .,} \hlkwc{value} \hlstd{= T)}
 \hlcom{#' variables: character vector of variable names for which you want the univariate regression estimate}
 \hlcom{#' must be contained in the column names of x}

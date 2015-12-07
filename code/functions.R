@@ -1,23 +1,28 @@
 ## ---- functions ----
 
-
-
-#' variables: character vector of variable names for which you want the univariate regression estimate
-#' must be contained in the column names of x
-#' x: matrix that includes all data corresponding to variables with corresponding column names
-#' y: response (matrix form)
-#' returns OLS coefficients as a p x 1 data.frame
+#' Univariate regressions 
+#' 
+#' @description function used to create initial estimates in fitting 
+#' algorithm
+#' @param variables character vector of variable names for which you want 
+#' the univariate regression estimate. Must be contained in the 
+#' column names of x
+#' @param x matrix that includes all data corresponding to variables 
+#' with corresponding column names
+#' @param y centered response (matrix form)
+#' @return OLS coefficients as a p x 1 data.frame
+#' @note y should be centered because this function does not fit an 
+#' intercept
 
 uni_fun <- function(variables, x, y) {
-    
-
-    
     res <- plyr::ldply(variables, function(i) {
-        fit <- lm.fit(x = x[,i, drop = F], y = y ) # dont need to add intercept because y has been centered
-        fit$coefficients[1]
-    }) %>% magrittr::set_rownames(variables) %>% magrittr::set_colnames("univariate_beta") %>% as.matrix
+        # dont need to add intercept because y has been centered
+        fit <- lm.fit(x = x[,i, drop = F], y = y ) 
+        fit$coefficients[1] }) %>% 
+        magrittr::set_rownames(variables) %>% 
+        magrittr::set_colnames("univariate_beta") %>% 
+        as.matrix
     return(res)
-    
 }
 
 # function that takes a vector of betas (which are the main effects)

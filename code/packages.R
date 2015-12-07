@@ -44,5 +44,19 @@ if(!pckg) {
     require(plyr)
 }
 
+pckg = try(require(dplyr))
+if(!pckg) {
+    cat("Installing 'dplyr' from CRAN\n")
+    getPckg("dplyr")
+    require(dplyr)
+}
+
+pckg = try(require(gcdnet))
+if(!pckg) {
+    cat("Installing 'gcdnet' from CRAN\n")
+    getPckg("gcdnet")
+    require(gcdnet)
+}
+
 
 

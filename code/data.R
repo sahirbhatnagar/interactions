@@ -11,7 +11,7 @@ source("packages.R")
 
 ## ---- data ----
 
-set.seed(123456)
+set.seed(12345)
 
 # number of predictors
 p = 10 
@@ -20,7 +20,7 @@ p = 10
 n = 200 
 
 # correlation between X's
-rho = 0.5 
+rho = 0.5
 
 # signal to noise ratio
 signal_to_noise_ratio = 4
@@ -62,8 +62,8 @@ apply(X, 2, sd) %>% sum
 # the response
 y.star <- X[,names(beta4)] %*% beta4
 error <- rnorm(n)
-k <- sqrt(var(y.star)/(signal_to_noise_ratio*var(error)))
-Y <- (y.star + k*error) %>% scale(center = TRUE, scale = FALSE)
+k <- sqrt(var(y.star)/(signal_to_noise_ratio*var(error))) 
+Y <- (y.star + k*error) %>% scale(center = TRUE, scale = FALSE) 
 colnames(Y) <- "Y"
 
 # record mean of response before centering

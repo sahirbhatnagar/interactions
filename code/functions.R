@@ -1,3 +1,13 @@
+##################################
+# R source code file for functions
+# Created by Sahir, Dec 7, 2015
+# Updated 
+# hosted on Github repo 'sahirbhatnagar/interactions'
+# NOTE: the main function is shim. Most of the other functions
+# are being called by shim
+##################################
+
+
 ## ---- functions ----
 
 #' Univariate regressions 
@@ -230,50 +240,6 @@ ridge_weights <- function(x, y, main.effect.names, interaction.names,
 }
 
 
-#' Update Weights based on betas and gammas. Currently not being used.
-#' 
-#' @description uses betas and gammas to update weights. this is used to update
-#' the weights at each iteration of the fitting algorithm in the \code{shim}
-#' function
-#' @param betas.and.gammas q x 1 data.frame or matrix of betas and 
-#' gamma estimates. The rownames must be appropriately labelled because 
-#' these labels are be used in this function and must match those in the arguments
-#' \code{main.effect.names} and \code{interaction.names}
-#' @param main.effect.names character vector of main effects names
-#' @param interaction.names character vector of interaction names. must be 
-#' separated by a ':' (e.g. x1:x2)
-#' @param include.intercept logical if intercept should be fitted. default is 
-#' FALSE. Should be set to TRUE if y is not centered
-#' @note Currently this is not being used in the shim function i.e. we are not
-#' updating the weights at each iteration
-#' @return q x 1 matrix of weights
-
-update_weights <- function(betas.and.gammas, 
-                           main.effect.names, 
-                           interaction.names,
-                           epsilon = 1e-5) {
-    
-    # create output matrix
-    weights <- matrix(nrow = nrow(betas.and.gammas)) %>% 
-        magrittr::set_rownames(rownames(betas.and.gammas))
-    
-    # main effects weights
-    for (j in main.effect.names) {
-        
-        weights[j,] <- if (betas.and.gammas[j,] < epsilon) 1e7  else 
-                        abs(1/betas.and.gammas[j,]) 
-    }
-    
-    for (k in interaction.names) {
-
-        weights[k,] <- if (betas.and.gammas[k,]<epsilon) 1e7 else 
-                        abs(1/betas.and.gammas[k,]) 
-    }
-    
-    return(weights)
-}
-
-
 #' Likelihood function
 #' 
 #' @description calculates likelihood function. Used to assess convergence
@@ -311,7 +277,6 @@ Q_theta <- function(x, y, beta, gamma, weights,
         lambda.beta * (crossprod(weights[main.effect.names,], abs(beta))) + 
         lambda.gamma * (crossprod(weights[interaction.names,], abs(gamma)))
 }
-
 
 
 #' Fit the Strong Heredity Interactions Model
@@ -498,6 +463,51 @@ shim <- function(x, y, main.effect.names, interaction.names,
     
     return(list(beta = betas, gamma = gammas, Q = Q, m = m))
     
+}
+
+
+
+#' Update Weights based on betas and gammas. Currently not being used.
+#' 
+#' @description uses betas and gammas to update weights. this is used to update
+#' the weights at each iteration of the fitting algorithm in the \code{shim}
+#' function
+#' @param betas.and.gammas q x 1 data.frame or matrix of betas and 
+#' gamma estimates. The rownames must be appropriately labelled because 
+#' these labels are be used in this function and must match those in the arguments
+#' \code{main.effect.names} and \code{interaction.names}
+#' @param main.effect.names character vector of main effects names
+#' @param interaction.names character vector of interaction names. must be 
+#' separated by a ':' (e.g. x1:x2)
+#' @param include.intercept logical if intercept should be fitted. default is 
+#' FALSE. Should be set to TRUE if y is not centered
+#' @note Currently this is not being used in the shim function i.e. we are not
+#' updating the weights at each iteration
+#' @return q x 1 matrix of weights
+
+update_weights <- function(betas.and.gammas, 
+                           main.effect.names, 
+                           interaction.names,
+                           epsilon = 1e-5) {
+    
+    # create output matrix
+    weights <- matrix(nrow = nrow(betas.and.gammas)) %>% 
+        magrittr::set_rownames(rownames(betas.and.gammas))
+    
+    # main effects weights
+    for (j in main.effect.names) {
+        
+        weights[j,] <- if (betas.and.gammas[j,] < epsilon) 1e7  else 
+            abs(1/betas.and.gammas[j,]) 
+    }
+    
+    for (k in interaction.names) {
+        
+        weights[k,] <- if (betas.and.gammas[k,]<epsilon) 1e7 else 
+            abs(1/betas.and.gammas[k,]) 
+    }
+    
+    return(weights)
 }
 
 

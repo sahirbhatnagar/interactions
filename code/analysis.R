@@ -1,3 +1,13 @@
+##################################
+# R source code file to analyse the simulated data
+# Created by Sahir, Dec 7, 2015
+# Updated 
+# hosted on Github repo 'sahirbhatnagar/interactions'
+# NOTE: the shim function implements the Choi et al. algorithm
+# for one pair of tuning parameters. I still need to work on the
+# cross validation scheme for choosing the tuning parameters
+##################################
+
 rm(list = ls())
 
 source("packages.R")

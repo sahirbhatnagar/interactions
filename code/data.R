@@ -5,6 +5,9 @@
 # Updated Dec 6th, 2015
 # hosted on Github repo 'sahirbhatnagar/interactions'
 # NOTE: need to load packages.R before running this file
+# you need to manually change which of the 5 betas
+# from table 1 of Choi et al. you want to use for the simulation.
+# this is being used in calculating the variable 'y.star' 
 ##################################
 
 source("packages.R")

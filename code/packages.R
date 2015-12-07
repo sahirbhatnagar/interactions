@@ -1,3 +1,14 @@
+##################################
+# R source code file for packages used by 'functions.R'
+# Created by Sahir, Dec 7, 2015
+# Updated 
+# hosted on Github repo 'sahirbhatnagar/interactions'
+# NOTE: this script will automatically install packages not
+# currently available locally. to be sourced before using 'functions.R'
+# and 'data.R'
+##################################
+
+
 ## ---- required-packages ----
 
 getPckg <- function(pckg) install.packages(pckg, repos = "http://cran.r-project.org")

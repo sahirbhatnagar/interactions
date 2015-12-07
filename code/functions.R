@@ -25,22 +25,47 @@ uni_fun <- function(variables, x, y) {
     return(res)
 }
 
-# function that takes a vector of betas (which are the main effects)
-# and alphas which are the interaction effects, and outputs
-# the main effects, and converts the alphas to gammas
-# note that alpha_ij = gamma_ij * beta_i*beta_j, i < j 
-convert <- function(betas.and.alphas, main.effect.names, interaction.names, epsilon = 1e-4) {
+#' Convert alphas to gammas
+#' 
+#' @description function that takes a vector of betas (which are the 
+#' main effects) and alphas (which are the interaction effects) and converts 
+#' the alphas to gammas.
+#' note that 
+#' \deqn{y = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p 
+#' + \alpha_{12} x_1 x_2 + \cdots + \alpha_{p-1,p} x_p x_{p-1} }
+#' and
+#' \deqn{\alpha_{ij} = \gamma_{ij} * \beta_i*\beta_j , i < j}
+#' this function is used because the fitting algorithm estimates the gammas,
+#' and furthermore, the L1 penalty is placed on the gammas. It is used only
+#' in the initialization step.
+#' @param betas.and.alphas p x 1 data.frame or matrix of main effects and 
+#' interaction estimates. For example the output from the \code{uni_fun} 
+#' function. The rownames must be appropriately labelled because these labels 
+#' will be used in other functions
+#' @param main.effect.names character vector of main effects names
+#' @param interaction.names character vector of interaction names. must be 
+#' separated by a ':' (e.g. x1:x2)
+#' @param epsilon threshold to avoid division by a very small beta e.g. if 
+#' any of the main effects are less than epsilon, set gamma to zero. This 
+#' should not really be an important parameter because this function is only
+#' used in the initialization step, where the intial estimates are from OLS or
+#' ridge regression and therefor should not be very close to 0
+#' @return a labelled p x 1 data.frame of betas and gammas 
+
+convert <- function(betas.and.alphas, main.effect.names, interaction.names, epsilon = 1e-5) {
     
-    # betas.and.alphas is the result from uni_fun
-    # create output matrix
     betas_and_gammas <- matrix(nrow = nrow(betas.and.alphas)) %>% 
-        magrittr::set_rownames(rownames(betas.and.alphas))
+                        magrittr::set_rownames(rownames(betas.and.alphas))
     
     for (k in interaction.names) {
         # get names of main effects corresponding to interaction
-        (main <- betas.and.alphas[k, , drop = F] %>% rownames %>% stringr::str_split(":") %>% unlist)
-        # convert alpha to gamma BUT NEED TO CHECK IF BETAS ARE 0!!!!
-        betas_and_gammas[k,] <- if (any(abs(betas.and.alphas[main,]) < epsilon )) 0 else betas.and.alphas[k,]/prod(betas.and.alphas[main,]) 
+        main <- betas.and.alphas[k, , drop = F] %>% 
+                rownames %>% stringr::str_split(":") %>% 
+                unlist
+        
+        # convert alpha to gamma BUT NEED TO CHECK IF BETAS ARE 0
+        betas_and_gammas[k,] <- if (any(abs(betas.and.alphas[main,]) < epsilon )) 0 else 
+                                betas.and.alphas[k,]/prod(betas.and.alphas[main,]) 
     }
     
     # add back the main effects which dont need to be transformed
@@ -49,7 +74,6 @@ convert <- function(betas.and.alphas, main.effect.names, interaction.names, epsi
     }
     
     return(betas_and_gammas)
-    
 }
 
 # function that converts gammas to alphas

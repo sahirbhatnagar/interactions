@@ -4,8 +4,10 @@
 # Created by Sahir, November 5, 2015
 # Updated Dec 6th, 2015
 # hosted on Github repo 'sahirbhatnagar/interactions'
-# NOTE:
+# NOTE: need to load packages.R before running this file
 ##################################
+
+source("packages.R")
 
 ## ---- data ----
 

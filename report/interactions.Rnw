@@ -1,0 +1,118 @@
+\documentclass[11pt,letter]{article} 
+%\documentclass[11pt,letter]{tufte-handout} 
+%\usepackage[latin1]{inputenc}
+\usepackage[parfill]{parskip} % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{amsmath,amsthm,amssymb,bbm} %math stuff
+\usepackage{ctable}
+\usepackage{placeins} % FloatBarrier
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{float}    % for fig.pos='H'
+\usepackage{rotfloat} % for sidewaysfigure
+%\usepackage{subfig}   % for subfigure
+\usepackage{subcaption}  % an alternative package for sub figures
+\newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2}}
+\usepackage{comment}
+\usepackage[round]{natbib}   % omit 'round' option if you prefer square brackets
+\bibliographystyle{plainnat}
+\usepackage{setspace} %Spacing
+\usepackage{graphicx,graphics}
+\usepackage{booktabs,tabularx}
+\usepackage{enumerate}
+\usepackage{makecell}
+\usepackage{xfrac}
+\usepackage{color, colortbl, xcolor}
+\usepackage{booktabs,dcolumn} % for use with texreg in R
+\usepackage[pagebackref=true,bookmarks]{hyperref}
+\hypersetup{
+    unicode=false,          
+    pdftoolbar=true,        
+    pdfmenubar=true,        
+    pdffitwindow=false,     % window fit to page when opened
+    pdfstartview={FitH},    % fits the width of the page to the window
+    pdftitle={SHIM},    % title
+    pdfauthor={SRB},     % author
+    pdfsubject={Subject},   % subject of the document
+    pdfcreator={SRB},   % creator of the document
+    pdfproducer={SRB}, % producer of the document
+    pdfkeywords={}, % list of keywords
+    pdfnewwindow=true,      % links in new window
+    colorlinks=true,       % false: boxed links; true: colored links
+    linkcolor=red,          % color of internal links (change box color with linkbordercolor)
+    citecolor=blue,        % color of links to bibliography
+    filecolor=black,      % color of file links
+    urlcolor=cyan           % color of external links
+}
+
+% my commands
+\newcommand{\tm}[1]{\textrm{#1}}
+
+
+% fancy header commands
+\renewcommand{\headrulewidth}{0.0pt}
+\renewcommand{\footrulewidth}{0.0pt}
+\setlength{\textheight}{9.00in}
+\setlength{\textwidth}{7.00in}
+\setlength{\topmargin}{-0.5in}
+\setlength{\evensidemargin}{-0.25in}
+\setlength{\oddsidemargin}{-0.25in}
+\renewcommand{\baselinestretch}{1.2}
+\makeatletter
+\makeatother
+\lfoot{} \cfoot{ } \rfoot{{\small{\em Page \thepage \ of \pageref{LastPage}}}}
+
+\begin{document}
+\pagestyle{fancy}
+
+\title{Variable selection with the strong heredity constraint and its oracle property}
+\author{Sahir Bhatnagar}
+\maketitle
+
+
+<<setup, echo=FALSE,warning=FALSE,message=FALSE,cache=FALSE, results='hide'>>=
+options(width=60, digits=2)
+set.seed(45)
+opts_chunk$set(echo = TRUE, tidy = TRUE, cache = FALSE, warning = FALSE, message = FALSE)
+opts_template$set(
+    fig.large = list(fig.width = 7, fig.height = 5, fig.align = 'center', fig.pos = 'H'),
+    fig.small = list(fig.width = 6, fig.height = 4, fig.align = 'center', fig.pos = 'H'),
+    fig.full = list(fig.width = 8, fig.height = 6, fig.align = 'center', fig.pos = 'H')
+)
+opts_knit$set(eval.after = 'fig.cap') # for captions to be evaluated after R objects are available 
+knitr::read_chunk("../code/packages.R")
+knitr::read_chunk("../code/data.R")
+knitr::read_chunk("../code/functions.R")
+#knitr::read_chunk("../code/analysis.R")
+@
+
+<<required-packages,echo=FALSE,warning=FALSE,message=FALSE, eval=TRUE, results='hide'>>=
+@
+
+Trying to code the Strong Heredity Interaction Model (SHIM) in~\cite{choi2010variable}.
+
+\section{Simulate the data}
+
+<<data>>=
+@
+
+
+\newpage
+\bibliography{bibliography}
+
+
+\newpage
+\appendix
+
+\section{R Code}
+<<show-code, ref.label=all_labels()[-1],echo=TRUE,eval=FALSE>>=
+@
+
+\newpage
+
+\section{Session Information}
+<<echo=TRUE>>=
+sessionInfo()
+@
+
+
+\end{document}

@@ -1,0 +1,910 @@
+\documentclass[11pt,letter]{article}\usepackage[]{graphicx}\usepackage[]{color}
+%% maxwidth is the original width if it is less than linewidth
+%% otherwise use linewidth (to make sure the graphics do not exceed the margin)
+\makeatletter
+\def\maxwidth{ %
+  \ifdim\Gin@nat@width>\linewidth
+    \linewidth
+  \else
+    \Gin@nat@width
+  \fi
+}
+\makeatother
+
+\definecolor{fgcolor}{rgb}{0.345, 0.345, 0.345}
+\newcommand{\hlnum}[1]{\textcolor[rgb]{0.686,0.059,0.569}{#1}}%
+\newcommand{\hlstr}[1]{\textcolor[rgb]{0.192,0.494,0.8}{#1}}%
+\newcommand{\hlcom}[1]{\textcolor[rgb]{0.678,0.584,0.686}{\textit{#1}}}%
+\newcommand{\hlopt}[1]{\textcolor[rgb]{0,0,0}{#1}}%
+\newcommand{\hlstd}[1]{\textcolor[rgb]{0.345,0.345,0.345}{#1}}%
+\newcommand{\hlkwa}[1]{\textcolor[rgb]{0.161,0.373,0.58}{\textbf{#1}}}%
+\newcommand{\hlkwb}[1]{\textcolor[rgb]{0.69,0.353,0.396}{#1}}%
+\newcommand{\hlkwc}[1]{\textcolor[rgb]{0.333,0.667,0.333}{#1}}%
+\newcommand{\hlkwd}[1]{\textcolor[rgb]{0.737,0.353,0.396}{\textbf{#1}}}%
+
+\usepackage{framed}
+\makeatletter
+\newenvironment{kframe}{%
+ \def\at@end@of@kframe{}%
+ \ifinner\ifhmode%
+  \def\at@end@of@kframe{\end{minipage}}%
+  \begin{minipage}{\columnwidth}%
+ \fi\fi%
+ \def\FrameCommand##1{\hskip\@totalleftmargin \hskip-\fboxsep
+ \colorbox{shadecolor}{##1}\hskip-\fboxsep
+     % There is no \\@totalrightmargin, so:
+     \hskip-\linewidth \hskip-\@totalleftmargin \hskip\columnwidth}%
+ \MakeFramed {\advance\hsize-\width
+   \@totalleftmargin\z@ \linewidth\hsize
+   \@setminipage}}%
+ {\par\unskip\endMakeFramed%
+ \at@end@of@kframe}
+\makeatother
+
+\definecolor{shadecolor}{rgb}{.97, .97, .97}
+\definecolor{messagecolor}{rgb}{0, 0, 0}
+\definecolor{warningcolor}{rgb}{1, 0, 1}
+\definecolor{errorcolor}{rgb}{1, 0, 0}
+\newenvironment{knitrout}{}{} % an empty environment to be redefined in TeX
+
+\usepackage{alltt} 
+%\documentclass[11pt,letter]{tufte-handout} 
+%\usepackage[latin1]{inputenc}
+\usepackage[parfill]{parskip} % Activate to begin paragraphs with an empty line rather than an indent
+\usepackage{amsmath,amsthm,amssymb,bbm} %math stuff
+\usepackage{ctable}
+\usepackage{placeins} % FloatBarrier
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{float}    % for fig.pos='H'
+\usepackage{rotfloat} % for sidewaysfigure
+%\usepackage{subfig}   % for subfigure
+\usepackage{subcaption}  % an alternative package for sub figures
+\newcommand{\subfloat}[2][need a sub-caption]{\subcaptionbox{#1}{#2}}
+\usepackage{comment}
+\usepackage[round]{natbib}   % omit 'round' option if you prefer square brackets
+\bibliographystyle{plainnat}
+\usepackage{setspace} %Spacing
+\usepackage{graphicx,graphics}
+\usepackage{booktabs,tabularx}
+\usepackage{enumerate}
+\usepackage{makecell}
+\usepackage{xfrac}
+\usepackage{color, colortbl, xcolor}
+\usepackage{booktabs,dcolumn} % for use with texreg in R
+\usepackage[pagebackref=true,bookmarks]{hyperref}
+\hypersetup{
+    unicode=false,          
+    pdftoolbar=true,        
+    pdfmenubar=true,        
+    pdffitwindow=false,     % window fit to page when opened
+    pdfstartview={FitH},    % fits the width of the page to the window
+    pdftitle={SHIM},    % title
+    pdfauthor={SRB},     % author
+    pdfsubject={Subject},   % subject of the document
+    pdfcreator={SRB},   % creator of the document
+    pdfproducer={SRB}, % producer of the document
+    pdfkeywords={}, % list of keywords
+    pdfnewwindow=true,      % links in new window
+    colorlinks=true,       % false: boxed links; true: colored links
+    linkcolor=red,          % color of internal links (change box color with linkbordercolor)
+    citecolor=blue,        % color of links to bibliography
+    filecolor=black,      % color of file links
+    urlcolor=cyan           % color of external links
+}
+
+% my commands
+\newcommand{\tm}[1]{\textrm{#1}}
+
+
+% fancy header commands
+\renewcommand{\headrulewidth}{0.0pt}
+\renewcommand{\footrulewidth}{0.0pt}
+\setlength{\textheight}{9.00in}
+\setlength{\textwidth}{7.00in}
+\setlength{\topmargin}{-0.5in}
+\setlength{\evensidemargin}{-0.25in}
+\setlength{\oddsidemargin}{-0.25in}
+\renewcommand{\baselinestretch}{1.2}
+\makeatletter
+\makeatother
+\lfoot{} \cfoot{ } \rfoot{{\small{\em Page \thepage \ of \pageref{LastPage}}}}
+\IfFileExists{upquote.sty}{\usepackage{upquote}}{}
+\begin{document}
+\pagestyle{fancy}
+
+\title{Variable selection with the strong heredity constraint and its oracle property}
+\author{Sahir Bhatnagar}
+\maketitle
+
+
+
+
+
+
+Trying to code the Strong Heredity Interaction Model (SHIM) in~\cite{choi2010variable}.
+
+\section{Simulate the data}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{set.seed}\hlstd{(}\hlnum{123456}\hlstd{)}
+\hlstd{p} \hlkwb{=} \hlnum{10}  \hlcom{# number of predictors}
+\hlstd{n} \hlkwb{=} \hlnum{200}  \hlcom{# number of test subjects}
+\hlstd{m} \hlkwb{=} \hlnum{200}  \hlcom{# number of validation subjects}
+\hlstd{rho} \hlkwb{=} \hlnum{0.5}
+\hlstd{signal_to_noise_ratio} \hlkwb{=} \hlnum{4}
+
+\hlstd{main_effect_names} \hlkwb{<-} \hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{p)}  \hlcom{# names of the main effects}
+\hlcom{# names of the active set}
+\hlstd{true_var_names} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"x1"}\hlstd{,} \hlstr{"x2"}\hlstd{,} \hlstr{"x3"}\hlstd{,} \hlstr{"x4"}\hlstd{,} \hlstr{"x1:x2"}\hlstd{,} \hlstr{"x1:x3"}\hlstd{,}
+    \hlstr{"x1:x4"}\hlstd{,} \hlstr{"x2:x3"}\hlstd{,} \hlstr{"x2:x4"}\hlstd{,} \hlstr{"x3:x4"}\hlstd{)}
+\hlstd{beta1} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+\hlstd{beta2} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0.5}\hlstd{,} \hlnum{0.4}\hlstd{,} \hlnum{0.1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+\hlstd{beta3} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+\hlstd{beta4} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{4}\hlstd{,} \hlnum{4}\hlstd{,} \hlnum{2}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+\hlstd{beta5} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+
+
+\hlcom{# simulate Toeplitz like structure}
+\hlstd{H} \hlkwb{<-} \hlkwd{abs}\hlstd{(}\hlkwd{outer}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{p,} \hlnum{1}\hlopt{:}\hlstd{p,} \hlstr{"-"}\hlstd{))}
+\hlstd{cor} \hlkwb{<-} \hlstd{rho}\hlopt{^}\hlstd{H}
+
+\hlstd{DT} \hlkwb{<-} \hlstd{MASS}\hlopt{::}\hlkwd{mvrnorm}\hlstd{(}\hlkwc{n} \hlstd{= n,} \hlkwc{mu} \hlstd{=} \hlkwd{rep}\hlstd{(}\hlnum{0}\hlstd{, p),} \hlkwc{Sigma} \hlstd{= cor)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_colnames}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,}
+    \hlnum{1}\hlopt{:}\hlstd{p))} \hlopt{%>%} \hlkwd{set_rownames}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Subject"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{n))}
+\hlkwd{head}\hlstd{(DT)}
+\end{alltt}
+\begin{verbatim}
+##             x1    x2    x3    x4    x5     x6     x7    x8
+## Subject1 -0.16 -0.92 -1.54 -0.79 -1.04 -0.148  0.257 -0.28
+## Subject2  0.37  0.28  0.36 -0.69  0.60 -0.151  0.011  0.73
+## Subject3  0.71  1.10  1.26 -0.19 -0.83  0.323 -0.223  1.16
+## Subject4 -0.44  0.66  0.44  0.50  0.33  0.025 -1.229 -0.99
+## Subject5  1.30  0.15 -0.82 -1.04 -1.32 -1.796 -0.782 -1.47
+## Subject6 -0.82 -1.71  0.93  0.87 -0.09 -0.321 -0.616 -1.68
+##              x9   x10
+## Subject1 -0.267  1.28
+## Subject2 -0.098  0.32
+## Subject3 -1.157  0.17
+## Subject4  0.597 -0.48
+## Subject5 -3.419 -2.32
+## Subject6 -0.901 -1.24
+\end{verbatim}
+\begin{alltt}
+\hlcom{# create X matrix which contains all main effects and}
+\hlcom{# interactions each column is standardized to mean 0 and sd 1}
+\hlstd{X} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlkwd{as.formula}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"~("}\hlstd{,} \hlkwd{paste0}\hlstd{(main_effect_names,}
+    \hlkwc{collapse} \hlstd{=} \hlstr{"+"}\hlstd{),} \hlstr{")^2-1"}\hlstd{)), DT} \hlopt{%>%} \hlkwd{as.data.frame}\hlstd{())} \hlopt{%>%} \hlstd{scale}
+\hlkwd{crossprod}\hlstd{(X)} \hlopt{%>%} \hlstd{diag}
+\end{alltt}
+\begin{verbatim}
+##     x1     x2     x3     x4     x5     x6     x7     x8 
+##    199    199    199    199    199    199    199    199 
+##     x9    x10  x1:x2  x1:x3  x1:x4  x1:x5  x1:x6  x1:x7 
+##    199    199    199    199    199    199    199    199 
+##  x1:x8  x1:x9 x1:x10  x2:x3  x2:x4  x2:x5  x2:x6  x2:x7 
+##    199    199    199    199    199    199    199    199 
+##  x2:x8  x2:x9 x2:x10  x3:x4  x3:x5  x3:x6  x3:x7  x3:x8 
+##    199    199    199    199    199    199    199    199 
+##  x3:x9 x3:x10  x4:x5  x4:x6  x4:x7  x4:x8  x4:x9 x4:x10 
+##    199    199    199    199    199    199    199    199 
+##  x5:x6  x5:x7  x5:x8  x5:x9 x5:x10  x6:x7  x6:x8  x6:x9 
+##    199    199    199    199    199    199    199    199 
+## x6:x10  x7:x8  x7:x9 x7:x10  x8:x9 x8:x10 x9:x10 
+##    199    199    199    199    199    199    199
+\end{verbatim}
+\begin{alltt}
+\hlkwd{apply}\hlstd{(X,} \hlnum{2}\hlstd{, mean)} \hlopt{%>%} \hlstd{sum}
+\end{alltt}
+\begin{verbatim}
+## [1] 1.6e-16
+\end{verbatim}
+\begin{alltt}
+\hlkwd{apply}\hlstd{(X,} \hlnum{2}\hlstd{, sd)} \hlopt{%>%} \hlstd{sum}
+\end{alltt}
+\begin{verbatim}
+## [1] 55
+\end{verbatim}
+\begin{alltt}
+\hlcom{# # alternative, according to Bien et al 2013, they first}
+\hlcom{# standardize the main effects, # then take all pairwise}
+\hlcom{# products for interactions, then center those products #}
+\hlcom{# first scale the main effects X_temp <- DT %>% scale}
+\hlcom{# apply(X_temp, 2, mean) %>% sum apply(X_temp, 2, sd) %>% sum}
+\hlcom{# # then create all pairwise interactions X_temp_2 <-}
+\hlcom{# model.matrix(as.formula(paste0('~(',paste0(main_effect_names,}
+\hlcom{# collapse = '+'),')^2-1')), X %>% as.data.frame())}
+\hlcom{# apply(X_temp_2[,(p+1):ncol(X_temp_2)], 2, sd) %>% hist}
+\hlcom{# apply(X_temp_2[,(p+1):ncol(X_temp_2)], 2, mean) %>% hist #}
+\hlcom{# then center the product terms and combine with standardized}
+\hlcom{# main effects X <- cbind(X_temp_2[,1:p],}
+\hlcom{# scale(X_temp_2[,(p+1):ncol(X_temp_2)], center = T, scale =}
+\hlcom{# F)) dim(X) str(X) X %>% crossprod() %>% diag}
+
+\hlstd{y.star} \hlkwb{<-} \hlstd{X[,} \hlkwd{names}\hlstd{(beta4)]} \hlopt{%*%} \hlstd{beta4}
+\hlstd{error} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(n)}
+\hlstd{k} \hlkwb{<-} \hlkwd{sqrt}\hlstd{(}\hlkwd{var}\hlstd{(y.star)}\hlopt{/}\hlstd{(signal_to_noise_ratio} \hlopt{*} \hlkwd{var}\hlstd{(error)))}
+\hlstd{Y} \hlkwb{<-} \hlstd{(y.star} \hlopt{+} \hlstd{k} \hlopt{*} \hlstd{error)} \hlopt{%>%} \hlkwd{scale}\hlstd{(}\hlkwc{center} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{scale} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\hlkwd{colnames}\hlstd{(Y)} \hlkwb{<-} \hlstr{"Y"}
+
+\hlstd{(b0} \hlkwb{<-} \hlkwd{mean}\hlstd{(y.star} \hlopt{+} \hlstd{k} \hlopt{*} \hlstd{error))}
+\end{alltt}
+\begin{verbatim}
+## [1] 0.27
+\end{verbatim}
+\begin{alltt}
+\hlcom{# names of interaction variables assuming interaction terms}
+\hlcom{# contain a ':'}
+\hlstd{interaction_names} \hlkwb{<-} \hlkwd{colnames}\hlstd{(X)} \hlopt{%>%} \hlkwd{grep}\hlstd{(}\hlstr{":"}\hlstd{, .,} \hlkwc{value} \hlstd{= T)}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+
+\newpage
+\bibliography{bibliography}
+
+
+\newpage
+\appendix
+
+\section{R Code}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{sessionInfo}\hlstd{()}
+\hlstd{getPckg} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{pckg}\hlstd{)} \hlkwd{install.packages}\hlstd{(pckg,} \hlkwc{repos} \hlstd{=} \hlstr{"http://cran.r-project.org"}\hlstd{)}
+
+\hlstd{pckg} \hlkwb{=} \hlkwd{try}\hlstd{(}\hlkwd{require}\hlstd{(knitr))}
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{pckg) \{}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Installing 'knitr' from CRAN\textbackslash{}n"}\hlstd{)}
+    \hlkwd{getPckg}\hlstd{(}\hlstr{"knitr"}\hlstd{)}
+    \hlkwd{require}\hlstd{(knitr)}
+\hlstd{\}}
+
+\hlstd{pckg} \hlkwb{=} \hlkwd{try}\hlstd{(}\hlkwd{require}\hlstd{(data.table))}
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{pckg) \{}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Installing 'data.table' from CRAN\textbackslash{}n"}\hlstd{)}
+    \hlkwd{getPckg}\hlstd{(}\hlstr{"data.table"}\hlstd{)}
+    \hlkwd{require}\hlstd{(data.table)}
+\hlstd{\}}
+
+\hlstd{pckg} \hlkwb{=} \hlkwd{try}\hlstd{(}\hlkwd{require}\hlstd{(magrittr))}
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{pckg) \{}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Installing 'magrittr' from CRAN\textbackslash{}n"}\hlstd{)}
+    \hlkwd{getPckg}\hlstd{(}\hlstr{"magrittr"}\hlstd{)}
+    \hlkwd{require}\hlstd{(magrittr)}
+\hlstd{\}}
+
+\hlstd{pckg} \hlkwb{=} \hlkwd{try}\hlstd{(}\hlkwd{require}\hlstd{(glmnet))}
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{pckg) \{}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Installing 'glmnet' from CRAN\textbackslash{}n"}\hlstd{)}
+    \hlkwd{getPckg}\hlstd{(}\hlstr{"glmnet"}\hlstd{)}
+    \hlkwd{require}\hlstd{(glmnet)}
+\hlstd{\}}
+
+\hlstd{pckg} \hlkwb{=} \hlkwd{try}\hlstd{(}\hlkwd{require}\hlstd{(stringr))}
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{pckg) \{}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Installing 'stringr' from CRAN\textbackslash{}n"}\hlstd{)}
+    \hlkwd{getPckg}\hlstd{(}\hlstr{"stringr"}\hlstd{)}
+    \hlkwd{require}\hlstd{(stringr)}
+\hlstd{\}}
+
+\hlstd{pckg} \hlkwb{=} \hlkwd{try}\hlstd{(}\hlkwd{require}\hlstd{(plyr))}
+\hlkwa{if} \hlstd{(}\hlopt{!}\hlstd{pckg) \{}
+    \hlkwd{cat}\hlstd{(}\hlstr{"Installing 'plyr' from CRAN\textbackslash{}n"}\hlstd{)}
+    \hlkwd{getPckg}\hlstd{(}\hlstr{"plyr"}\hlstd{)}
+    \hlkwd{require}\hlstd{(plyr)}
+\hlstd{\}}
+\hlkwd{set.seed}\hlstd{(}\hlnum{123456}\hlstd{)}
+\hlstd{p} \hlkwb{=} \hlnum{10}  \hlcom{# number of predictors}
+\hlstd{n} \hlkwb{=} \hlnum{200}  \hlcom{# number of test subjects}
+\hlstd{m} \hlkwb{=} \hlnum{200}  \hlcom{# number of validation subjects}
+\hlstd{rho} \hlkwb{=} \hlnum{0.5}
+\hlstd{signal_to_noise_ratio} \hlkwb{=} \hlnum{4}
+
+\hlstd{main_effect_names} \hlkwb{<-} \hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{p)}  \hlcom{# names of the main effects}
+\hlcom{# names of the active set}
+\hlstd{true_var_names} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"x1"}\hlstd{,} \hlstr{"x2"}\hlstd{,} \hlstr{"x3"}\hlstd{,} \hlstr{"x4"}\hlstd{,} \hlstr{"x1:x2"}\hlstd{,} \hlstr{"x1:x3"}\hlstd{,}
+    \hlstr{"x1:x4"}\hlstd{,} \hlstr{"x2:x3"}\hlstd{,} \hlstr{"x2:x4"}\hlstd{,} \hlstr{"x3:x4"}\hlstd{)}
+\hlstd{beta1} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+\hlstd{beta2} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0.5}\hlstd{,} \hlnum{0.4}\hlstd{,} \hlnum{0.1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+\hlstd{beta3} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+\hlstd{beta4} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{1}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{14}\hlstd{,} \hlnum{4}\hlstd{,} \hlnum{4}\hlstd{,} \hlnum{2}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+\hlstd{beta5} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{0}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{7}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{2}\hlstd{,} \hlnum{1}\hlstd{)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_names}\hlstd{(true_var_names)}
+
+
+\hlcom{# simulate Toeplitz like structure}
+\hlstd{H} \hlkwb{<-} \hlkwd{abs}\hlstd{(}\hlkwd{outer}\hlstd{(}\hlnum{1}\hlopt{:}\hlstd{p,} \hlnum{1}\hlopt{:}\hlstd{p,} \hlstr{"-"}\hlstd{))}
+\hlstd{cor} \hlkwb{<-} \hlstd{rho}\hlopt{^}\hlstd{H}
+
+\hlstd{DT} \hlkwb{<-} \hlstd{MASS}\hlopt{::}\hlkwd{mvrnorm}\hlstd{(}\hlkwc{n} \hlstd{= n,} \hlkwc{mu} \hlstd{=} \hlkwd{rep}\hlstd{(}\hlnum{0}\hlstd{, p),} \hlkwc{Sigma} \hlstd{= cor)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_colnames}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"x"}\hlstd{,}
+    \hlnum{1}\hlopt{:}\hlstd{p))} \hlopt{%>%} \hlkwd{set_rownames}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"Subject"}\hlstd{,} \hlnum{1}\hlopt{:}\hlstd{n))}
+\hlkwd{head}\hlstd{(DT)}
+
+\hlcom{# create X matrix which contains all main effects and}
+\hlcom{# interactions each column is standardized to mean 0 and sd 1}
+\hlstd{X} \hlkwb{<-} \hlkwd{model.matrix}\hlstd{(}\hlkwd{as.formula}\hlstd{(}\hlkwd{paste0}\hlstd{(}\hlstr{"~("}\hlstd{,} \hlkwd{paste0}\hlstd{(main_effect_names,}
+    \hlkwc{collapse} \hlstd{=} \hlstr{"+"}\hlstd{),} \hlstr{")^2-1"}\hlstd{)), DT} \hlopt{%>%} \hlkwd{as.data.frame}\hlstd{())} \hlopt{%>%} \hlstd{scale}
+\hlkwd{crossprod}\hlstd{(X)} \hlopt{%>%} \hlstd{diag}
+
+\hlkwd{apply}\hlstd{(X,} \hlnum{2}\hlstd{, mean)} \hlopt{%>%} \hlstd{sum}
+\hlkwd{apply}\hlstd{(X,} \hlnum{2}\hlstd{, sd)} \hlopt{%>%} \hlstd{sum}
+
+\hlcom{# # alternative, according to Bien et al 2013, they first}
+\hlcom{# standardize the main effects, # then take all pairwise}
+\hlcom{# products for interactions, then center those products #}
+\hlcom{# first scale the main effects X_temp <- DT %>% scale}
+\hlcom{# apply(X_temp, 2, mean) %>% sum apply(X_temp, 2, sd) %>% sum}
+\hlcom{# # then create all pairwise interactions X_temp_2 <-}
+\hlcom{# model.matrix(as.formula(paste0('~(',paste0(main_effect_names,}
+\hlcom{# collapse = '+'),')^2-1')), X %>% as.data.frame())}
+\hlcom{# apply(X_temp_2[,(p+1):ncol(X_temp_2)], 2, sd) %>% hist}
+\hlcom{# apply(X_temp_2[,(p+1):ncol(X_temp_2)], 2, mean) %>% hist #}
+\hlcom{# then center the product terms and combine with standardized}
+\hlcom{# main effects X <- cbind(X_temp_2[,1:p],}
+\hlcom{# scale(X_temp_2[,(p+1):ncol(X_temp_2)], center = T, scale =}
+\hlcom{# F)) dim(X) str(X) X %>% crossprod() %>% diag}
+
+\hlstd{y.star} \hlkwb{<-} \hlstd{X[,} \hlkwd{names}\hlstd{(beta4)]} \hlopt{%*%} \hlstd{beta4}
+\hlstd{error} \hlkwb{<-} \hlkwd{rnorm}\hlstd{(n)}
+\hlstd{k} \hlkwb{<-} \hlkwd{sqrt}\hlstd{(}\hlkwd{var}\hlstd{(y.star)}\hlopt{/}\hlstd{(signal_to_noise_ratio} \hlopt{*} \hlkwd{var}\hlstd{(error)))}
+\hlstd{Y} \hlkwb{<-} \hlstd{(y.star} \hlopt{+} \hlstd{k} \hlopt{*} \hlstd{error)} \hlopt{%>%} \hlkwd{scale}\hlstd{(}\hlkwc{center} \hlstd{=} \hlnum{TRUE}\hlstd{,} \hlkwc{scale} \hlstd{=} \hlnum{FALSE}\hlstd{)}
+\hlkwd{colnames}\hlstd{(Y)} \hlkwb{<-} \hlstr{"Y"}
+
+\hlstd{(b0} \hlkwb{<-} \hlkwd{mean}\hlstd{(y.star} \hlopt{+} \hlstd{k} \hlopt{*} \hlstd{error))}
+
+\hlcom{# names of interaction variables assuming interaction terms}
+\hlcom{# contain a ':'}
+\hlstd{interaction_names} \hlkwb{<-} \hlkwd{colnames}\hlstd{(X)} \hlopt{%>%} \hlkwd{grep}\hlstd{(}\hlstr{":"}\hlstd{, .,} \hlkwc{value} \hlstd{= T)}
+\hlcom{#' variables: character vector of variable names for which you want the univariate regression estimate}
+\hlcom{#' must be contained in the column names of x}
+\hlcom{#' x: matrix that includes all data corresponding to variables with corresponding column names}
+\hlcom{#' y: response (matrix form)}
+\hlcom{#' returns OLS coefficients as a p x 1 data.frame}
+
+\hlstd{uni_fun} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{variables}\hlstd{,} \hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{) \{}
+
+
+
+    \hlstd{res} \hlkwb{<-} \hlstd{plyr}\hlopt{::}\hlkwd{ldply}\hlstd{(variables,} \hlkwa{function}\hlstd{(}\hlkwc{i}\hlstd{) \{}
+        \hlstd{fit} \hlkwb{<-} \hlkwd{lm.fit}\hlstd{(}\hlkwc{x} \hlstd{= x[, i,} \hlkwc{drop} \hlstd{= F],} \hlkwc{y} \hlstd{= y)}  \hlcom{# dont need to add intercept because y has been centered}
+        \hlstd{fit}\hlopt{$}\hlstd{coefficients[}\hlnum{1}\hlstd{]}
+    \hlstd{\})} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_rownames}\hlstd{(variables)} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_colnames}\hlstd{(}\hlstr{"univariate_beta"}\hlstd{)} \hlopt{%>%}
+        \hlstd{as.matrix}
+    \hlkwd{return}\hlstd{(res)}
+
+\hlstd{\}}
+
+\hlcom{# function that takes a vector of betas (which are the main}
+\hlcom{# effects) and alphas which are the interaction effects, and}
+\hlcom{# outputs the main effects, and converts the alphas to gammas}
+\hlcom{# note that alpha_ij = gamma_ij * beta_i*beta_j, i < j}
+\hlstd{convert} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{betas.and.alphas}\hlstd{,} \hlkwc{main.effect.names}\hlstd{,} \hlkwc{interaction.names}\hlstd{,}
+    \hlkwc{epsilon} \hlstd{=} \hlnum{1e-04}\hlstd{) \{}
+
+    \hlcom{# betas.and.alphas is the result from uni_fun create output}
+    \hlcom{# matrix}
+    \hlstd{betas_and_gammas} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwc{nrow} \hlstd{=} \hlkwd{nrow}\hlstd{(betas.and.alphas))} \hlopt{%>%}
+        \hlstd{magrittr}\hlopt{::}\hlkwd{set_rownames}\hlstd{(}\hlkwd{rownames}\hlstd{(betas.and.alphas))}
+
+    \hlkwa{for} \hlstd{(k} \hlkwa{in} \hlstd{interaction.names) \{}
+        \hlcom{# get names of main effects corresponding to interaction}
+        \hlstd{(main} \hlkwb{<-} \hlstd{betas.and.alphas[k, ,} \hlkwc{drop} \hlstd{= F]} \hlopt{%>%} \hlstd{rownames} \hlopt{%>%}
+            \hlstd{stringr}\hlopt{::}\hlkwd{str_split}\hlstd{(}\hlstr{":"}\hlstd{)} \hlopt{%>%} \hlstd{unlist)}
+        \hlcom{# convert alpha to gamma BUT NEED TO CHECK IF BETAS ARE 0!!!!}
+        \hlstd{betas_and_gammas[k, ]} \hlkwb{<-} \hlkwa{if} \hlstd{(}\hlkwd{any}\hlstd{(}\hlkwd{abs}\hlstd{(betas.and.alphas[main,}
+            \hlstd{])} \hlopt{<} \hlstd{epsilon))}
+            \hlnum{0} \hlkwa{else} \hlstd{betas.and.alphas[k, ]}\hlopt{/}\hlkwd{prod}\hlstd{(betas.and.alphas[main,}
+            \hlstd{])}
+    \hlstd{\}}
+
+    \hlcom{# add back the main effects which dont need to be transformed}
+    \hlkwa{for} \hlstd{(j} \hlkwa{in} \hlstd{main.effect.names) \{}
+        \hlstd{betas_and_gammas[j, ]} \hlkwb{<-} \hlstd{betas.and.alphas[j, ]}
+    \hlstd{\}}
+
+    \hlkwd{return}\hlstd{(betas_and_gammas)}
+
+\hlstd{\}}
+
+\hlcom{# function that converts gammas to alphas}
+\hlstd{convert2} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{betas.and.gammas}\hlstd{,} \hlkwc{main.effect.names}\hlstd{,} \hlkwc{interaction.names}\hlstd{) \{}
+
+    \hlcom{# betas.and.gammas = rbind2(beta_hat_next,}
+    \hlcom{# gamma_hat_previous) betas.and.gammas is the result from}
+    \hlcom{# shim function create output matrix}
+    \hlstd{betas.and.alphas} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwc{nrow} \hlstd{=} \hlkwd{nrow}\hlstd{(betas.and.gammas))} \hlopt{%>%}
+        \hlstd{magrittr}\hlopt{::}\hlkwd{set_rownames}\hlstd{(}\hlkwd{rownames}\hlstd{(betas.and.gammas))}
+
+    \hlkwa{for} \hlstd{(k} \hlkwa{in} \hlstd{interaction.names) \{}
+        \hlcom{# k='x1:x10' get names of main effects corresponding to}
+        \hlcom{# interaction}
+        \hlstd{(main} \hlkwb{<-} \hlstd{betas.and.gammas[k, ,} \hlkwc{drop} \hlstd{= F]} \hlopt{%>%} \hlstd{rownames} \hlopt{%>%}
+            \hlstd{stringr}\hlopt{::}\hlkwd{str_split}\hlstd{(}\hlstr{":"}\hlstd{)} \hlopt{%>%} \hlstd{unlist)}
+        \hlcom{# convert alpha to gamma}
+        \hlstd{betas.and.alphas[k, ]} \hlkwb{<-} \hlstd{betas.and.gammas[k, ]} \hlopt{*} \hlkwd{prod}\hlstd{(betas.and.gammas[main,}
+            \hlstd{])}
+    \hlstd{\}}
+
+    \hlcom{# add back the main effects which dont need to be transformed}
+    \hlkwa{for} \hlstd{(j} \hlkwa{in} \hlstd{main.effect.names) \{}
+        \hlstd{betas.and.alphas[j, ]} \hlkwb{<-} \hlstd{betas.and.gammas[j, ]}
+    \hlstd{\}}
+
+    \hlkwd{return}\hlstd{(betas.and.alphas)}
+
+\hlstd{\}}
+
+\hlcom{# function to calculate xtilde in step 3 of algorithm}
+\hlstd{xtilde} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{interaction.names}\hlstd{,} \hlkwc{data.main.effects}\hlstd{,} \hlkwc{beta.main.effects}\hlstd{) \{}
+
+    \hlcom{#' interaction.names character vector of interaction names}
+    \hlcom{#' data.main.effects data frame or matrix containing the main effects data}
+    \hlcom{#' beta.main.effects data frame or matrix containing the coefficients of main effects}
+    \hlcom{#' Only the main effects are used in this step, }
+    \hlcom{#' however you can provide this function, either the betas.and.alphas or }
+    \hlcom{#' betas.and.gammas because only the betas (main effect) paramters }
+    \hlcom{#' are used in the calculation of xtilde}
+
+    \hlcom{# create output matrix}
+    \hlstd{xtildas} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwc{ncol} \hlstd{=} \hlkwd{length}\hlstd{(interaction.names),} \hlkwc{nrow} \hlstd{=} \hlkwd{nrow}\hlstd{(data.main.effects))} \hlopt{%>%}
+        \hlstd{magrittr}\hlopt{::}\hlkwd{set_colnames}\hlstd{(interaction.names)}
+
+    \hlkwa{for} \hlstd{(k} \hlkwa{in} \hlstd{interaction.names) \{}
+        \hlcom{# get names of main effects corresponding to interaction}
+        \hlstd{(main} \hlkwb{<-} \hlstd{k} \hlopt{%>%} \hlstd{stringr}\hlopt{::}\hlkwd{str_split}\hlstd{(}\hlstr{":"}\hlstd{)} \hlopt{%>%} \hlstd{unlist)}
+
+        \hlcom{# step 3 to calculate x tilda}
+        \hlstd{xtildas[, k]} \hlkwb{<-} \hlkwd{prod}\hlstd{(beta.main.effects[main, ])} \hlopt{*} \hlstd{data.main.effects[,}
+            \hlstd{main[}\hlnum{1}\hlstd{],} \hlkwc{drop} \hlstd{= F]} \hlopt{*} \hlstd{data.main.effects[, main[}\hlnum{2}\hlstd{],}
+            \hlkwc{drop} \hlstd{= F]}
+    \hlstd{\}}
+
+    \hlkwd{return}\hlstd{(xtildas)}
+
+\hlstd{\}}
+
+\hlcom{# adaptive weights used in fitting algorithm, intercept set}
+\hlcom{# to 0 because Y is centered}
+\hlstd{ridge_weights} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{,} \hlkwc{main.effect.names}\hlstd{,} \hlkwc{interaction.names}\hlstd{) \{}
+    \hlcom{#' interaction.names character vector of interaction names}
+    \hlcom{#' main.effect.names character vector of main effect names}
+    \hlcom{#' must be contained in the column names of x}
+    \hlcom{#' x: matrix that includes all data corresponding to variables with corresponding column names}
+    \hlcom{#' all columns have mean 0 and variance 1}
+    \hlcom{#' y: centered response (matrix form)}
+    \hlcom{#' returns ridge weights as a p x 1 data.frame}
+    \hlcom{#' STILL NEED TO DECIDE IF I SHOULD MULTIPLY WEIGHTS BY LOG(N)/N AS DONE IN SECTION 3.1 AND IN}
+    \hlcom{#' PAPER BY WANG LI AND TSAI 2007 JRSSB}
+
+    \hlstd{n} \hlkwb{<-} \hlkwd{length}\hlstd{(y)}
+    \hlcom{# fit the ridge to get betas and alphas}
+    \hlstd{(fit} \hlkwb{<-} \hlstd{glmnet}\hlopt{::}\hlkwd{cv.glmnet}\hlstd{(}\hlkwc{x} \hlstd{= x,} \hlkwc{y} \hlstd{= y,} \hlkwc{alpha} \hlstd{=} \hlnum{0}\hlstd{,} \hlkwc{standardize} \hlstd{= F,}
+        \hlkwc{intercept} \hlstd{= F))}
+    \hlcom{# remove intercept}
+    \hlstd{(betas.and.alphas} \hlkwb{<-} \hlkwd{coef}\hlstd{(fit,} \hlkwc{s} \hlstd{=} \hlstr{"lambda.1se"}\hlstd{)} \hlopt{%>%} \hlkwd{as.matrix}\hlstd{()} \hlopt{%>%}
+        \hlstd{magrittr}\hlopt{::}\hlkwd{extract}\hlstd{(}\hlopt{-}\hlnum{1}\hlstd{, ,} \hlkwc{drop} \hlstd{= F))}
+
+    \hlcom{# (fit <- lm.fit(x = x, y = y)) # remove intercept}
+    \hlcom{# (betas.and.alphas <- coef(fit) %>% as.matrix())}
+
+    \hlcom{# create output matrix}
+    \hlstd{weights} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlkwc{nrow} \hlstd{=} \hlkwd{nrow}\hlstd{(betas.and.alphas))} \hlopt{%>%} \hlstd{magrittr}\hlopt{::}\hlkwd{set_rownames}\hlstd{(}\hlkwd{rownames}\hlstd{(betas.and.alphas))}
+
+    \hlcom{# main effects weights}
+    \hlkwa{for} \hlstd{(j} \hlkwa{in} \hlstd{main.effect.names) \{}
+        \hlstd{weights[j, ]} \hlkwb{<-} \hlkwd{abs}\hlstd{(}\hlnum{1}\hlopt{/}\hlstd{betas.and.alphas[j, ])}  \hlcom{#* log(n)/n}
+    \hlstd{\}}
+
+    \hlkwa{for} \hlstd{(k} \hlkwa{in} \hlstd{interaction.names) \{}
+        \hlcom{# get names of main effects corresponding to interaction}
+        \hlstd{(main} \hlkwb{<-} \hlstd{betas.and.alphas[k, ,} \hlkwc{drop} \hlstd{= F]} \hlopt{%>%} \hlstd{rownames} \hlopt{%>%}
+            \hlstd{stringr}\hlopt{::}\hlkwd{str_split}\hlstd{(}\hlstr{":"}\hlstd{)} \hlopt{%>%} \hlstd{unlist)}
+        \hlstd{weights[k, ]} \hlkwb{<-} \hlkwd{abs}\hlstd{(}\hlkwd{prod}\hlstd{(betas.and.alphas[main, ])}\hlopt{/}\hlstd{betas.and.alphas[k,}
+            \hlstd{])}  \hlcom{#* log(n)/n}
+    \hlstd{\}}
+
+    \hlkwd{return}\hlstd{(weights)}
+
+\hlstd{\}}
+
+\hlstd{soft} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{,} \hlkwc{beta}\hlstd{,} \hlkwc{lambda}\hlstd{,} \hlkwc{weight}\hlstd{) \{}
+    \hlcom{# user must supply x AND y, or beta.. but not both i set it}
+    \hlcom{# up this way because to get the sequence of lambdas, I use}
+    \hlcom{# the beta argument so that I only compute this once. I use}
+    \hlcom{# the x, y argument for the CV folds lambda can be a vector}
+    \hlcom{# and this functions will return each thresholded beta for}
+    \hlcom{# each lambda e.g. soft(0.25, lambda =}
+    \hlcom{# seq(0.001,0.65,length.out = 100), 1.5)}
+
+    \hlkwa{if} \hlstd{(}\hlkwd{missing}\hlstd{(x)} \hlopt{&} \hlkwd{missing}\hlstd{(y)} \hlopt{&} \hlkwd{missing}\hlstd{(beta))}
+        \hlkwd{stop}\hlstd{(}\hlstr{"user must supply x AND y, or beta but not both"}\hlstd{)}
+    \hlkwa{if} \hlstd{(}\hlkwd{missing}\hlstd{(x)} \hlopt{&} \hlkwd{missing}\hlstd{(y))}
+        \hlkwd{return}\hlstd{(}\hlkwd{list}\hlstd{(}\hlkwc{beta} \hlstd{=} \hlkwd{sign}\hlstd{(beta)} \hlopt{*} \hlkwd{pmax}\hlstd{(}\hlnum{0}\hlstd{,} \hlkwd{abs}\hlstd{(beta)} \hlopt{-} \hlstd{lambda} \hlopt{*}
+            \hlstd{weight)))}
+    \hlkwa{if} \hlstd{(}\hlkwd{missing}\hlstd{(beta)) \{}
+        \hlcom{# (beta <- lm.fit(x = cbind2(rep(1, length(y)),x), y = y) %>%}
+        \hlcom{# coef %>% magrittr::extract(2))}
+        \hlstd{(beta} \hlkwb{<-} \hlkwd{lm.fit}\hlstd{(}\hlkwc{x} \hlstd{= x[,} \hlnum{1}\hlstd{,} \hlkwc{drop} \hlstd{= F],} \hlkwc{y} \hlstd{= y)} \hlopt{%>%} \hlstd{coef} \hlopt{%>%}
+            \hlstd{magrittr}\hlopt{::}\hlkwd{extract}\hlstd{(}\hlnum{1}\hlstd{))}
+
+        \hlcom{# lm.fit(x = cbind2(rep(1, length(y_tilde_2)),x_tilde_2), y =}
+        \hlcom{# y_tilde_2) %>% coef %>% magrittr::extract(2)}
+        \hlstd{b_lasso} \hlkwb{<-} \hlkwd{sign}\hlstd{(beta)} \hlopt{*} \hlkwd{pmax}\hlstd{(}\hlnum{0}\hlstd{,} \hlkwd{abs}\hlstd{(beta)} \hlopt{-} \hlstd{lambda} \hlopt{*}
+            \hlstd{weight)}
+        \hlcom{# return(list('beta' = b_lasso, 'df' = nonzero(b_lasso)))}
+        \hlkwd{return}\hlstd{(b_lasso)}
+    \hlstd{\}}
+
+\hlstd{\}}
+
+\hlstd{cv_lspath} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{outlist}\hlstd{,} \hlkwc{lambda}\hlstd{,} \hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{,} \hlkwc{foldid}\hlstd{) \{}
+    \hlcom{# typenames <- c(misclass = 'Misclassification Error', loss =}
+    \hlcom{# 'Margin Based Loss') if (pred.loss == 'default') pred.loss}
+    \hlcom{# <- 'loss' if (!match(pred.loss, c('loss'), FALSE)) \{}
+    \hlcom{# warning('Only 'loss' available for least squares}
+    \hlcom{# regression; 'loss' used') pred.loss <- 'loss' \}}
+    \hlstd{y} \hlkwb{<-} \hlkwd{as.double}\hlstd{(y)}
+    \hlstd{nfolds} \hlkwb{<-} \hlkwd{max}\hlstd{(foldid)}
+    \hlstd{predmat} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlnum{NA}\hlstd{,} \hlkwd{length}\hlstd{(y),} \hlkwd{length}\hlstd{(lambda))}
+    \hlstd{nlams} \hlkwb{<-} \hlkwd{double}\hlstd{(nfolds)}
+    \hlkwa{for} \hlstd{(i} \hlkwa{in} \hlkwd{seq}\hlstd{(nfolds)) \{}
+        \hlcom{# i=1}
+        \hlstd{which} \hlkwb{<-} \hlstd{foldid} \hlopt{==} \hlstd{i}
+        \hlcom{# this gives be the fitted object for each CV fold}
+        \hlstd{fitobj} \hlkwb{<-} \hlstd{outlist[[i]]}
+
+        \hlcom{# this gives the predicted responses for the subjects in the}
+        \hlcom{# held-out fold for each lambda so if each fold has 20}
+        \hlcom{# subjects, and there are 100 lambdas, then this will return}
+        \hlcom{# a 20 x 100 matrix}
+        \hlstd{preds} \hlkwb{<-} \hlstd{x[which, ,} \hlkwc{drop} \hlstd{=} \hlnum{FALSE}\hlstd{]} \hlopt{%*%} \hlkwd{t}\hlstd{(fitobj}\hlopt{$}\hlstd{beta)}
+        \hlcom{# preds <- predict(fitobj, x[which, , drop = FALSE], type =}
+        \hlcom{# 'link')}
+        \hlstd{nlami} \hlkwb{<-} \hlkwd{length}\hlstd{(fitobj}\hlopt{$}\hlstd{lambda)}
+        \hlstd{predmat[which,} \hlkwd{seq}\hlstd{(nlami)]} \hlkwb{<-} \hlstd{preds}
+        \hlstd{nlams[i]} \hlkwb{<-} \hlstd{nlami}
+    \hlstd{\}}
+    \hlstd{cvraw} \hlkwb{<-} \hlstd{(y} \hlopt{-} \hlstd{predmat)}\hlopt{^}\hlnum{2}
+    \hlstd{cvob} \hlkwb{<-} \hlkwd{cvcompute}\hlstd{(cvraw, foldid, nlams)}
+    \hlstd{cvraw} \hlkwb{<-} \hlstd{cvob}\hlopt{$}\hlstd{cvraw}
+    \hlstd{N} \hlkwb{<-} \hlstd{cvob}\hlopt{$}\hlstd{N}
+    \hlstd{cvm} \hlkwb{<-} \hlkwd{apply}\hlstd{(cvraw,} \hlnum{2}\hlstd{, mean,} \hlkwc{na.rm} \hlstd{=} \hlnum{TRUE}\hlstd{)}
+    \hlstd{cvsd} \hlkwb{<-} \hlkwd{sqrt}\hlstd{(}\hlkwd{apply}\hlstd{(}\hlkwd{scale}\hlstd{(cvraw, cvm,} \hlnum{FALSE}\hlstd{)}\hlopt{^}\hlnum{2}\hlstd{,} \hlnum{2}\hlstd{, mean,} \hlkwc{na.rm} \hlstd{=} \hlnum{TRUE}\hlstd{)}\hlopt{/}\hlstd{(N} \hlopt{-}
+        \hlnum{1}\hlstd{))}
+    \hlkwd{list}\hlstd{(}\hlkwc{cvm} \hlstd{= cvm,} \hlkwc{cvsd} \hlstd{= cvsd,} \hlkwc{name} \hlstd{=} \hlstr{"MSE"}\hlstd{)}
+\hlstd{\}}
+
+\hlstd{cvcompute} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{mat}\hlstd{,} \hlkwc{foldid}\hlstd{,} \hlkwc{nlams}\hlstd{) \{}
+    \hlstd{nfolds} \hlkwb{<-} \hlkwd{max}\hlstd{(foldid)}
+    \hlstd{outmat} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlnum{NA}\hlstd{, nfolds,} \hlkwd{ncol}\hlstd{(mat))}
+    \hlstd{good} \hlkwb{<-} \hlkwd{matrix}\hlstd{(}\hlnum{0}\hlstd{, nfolds,} \hlkwd{ncol}\hlstd{(mat))}
+    \hlstd{mat[}\hlkwd{is.infinite}\hlstd{(mat)]} \hlkwb{<-} \hlnum{NA}
+    \hlkwa{for} \hlstd{(i} \hlkwa{in} \hlkwd{seq}\hlstd{(nfolds)) \{}
+        \hlstd{mati} \hlkwb{<-} \hlstd{mat[foldid} \hlopt{==} \hlstd{i, ]}
+        \hlstd{outmat[i, ]} \hlkwb{<-} \hlkwd{apply}\hlstd{(mati,} \hlnum{2}\hlstd{, mean,} \hlkwc{na.rm} \hlstd{=} \hlnum{TRUE}\hlstd{)}
+        \hlstd{good[i,} \hlkwd{seq}\hlstd{(nlams[i])]} \hlkwb{<-} \hlnum{1}
+    \hlstd{\}}
+    \hlstd{N} \hlkwb{<-} \hlkwd{apply}\hlstd{(good,} \hlnum{2}\hlstd{, sum)}
+    \hlkwd{list}\hlstd{(}\hlkwc{cvraw} \hlstd{= outmat,} \hlkwc{N} \hlstd{= N)}
+\hlstd{\}}
+
+\hlstd{lamfix} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{lam}\hlstd{) \{}
+    \hlstd{llam} \hlkwb{<-} \hlkwd{log}\hlstd{(lam)}
+    \hlstd{lam[}\hlnum{1}\hlstd{]} \hlkwb{<-} \hlkwd{exp}\hlstd{(}\hlnum{2} \hlopt{*} \hlstd{llam[}\hlnum{2}\hlstd{]} \hlopt{-} \hlstd{llam[}\hlnum{3}\hlstd{])}
+    \hlstd{lam}
+\hlstd{\}}
+
+\hlstd{nonzero} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{beta}\hlstd{,} \hlkwc{bystep} \hlstd{=} \hlnum{FALSE}\hlstd{) \{}
+    \hlstd{beta} \hlkwb{<-} \hlkwd{as.matrix}\hlstd{(beta)}
+    \hlstd{nr} \hlkwb{=} \hlkwd{nrow}\hlstd{(beta)}
+    \hlkwa{if} \hlstd{(nr} \hlopt{==} \hlnum{1}\hlstd{) \{}
+        \hlkwa{if} \hlstd{(bystep)}
+            \hlkwd{apply}\hlstd{(beta,} \hlnum{2}\hlstd{,} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{)} \hlkwa{if} \hlstd{(}\hlkwd{abs}\hlstd{(x)} \hlopt{>} \hlnum{0}\hlstd{)}
+                \hlnum{1} \hlkwa{else NULL}\hlstd{)} \hlkwa{else} \hlstd{\{}
+            \hlkwa{if} \hlstd{(}\hlkwd{any}\hlstd{(}\hlkwd{abs}\hlstd{(beta)} \hlopt{>} \hlnum{0}\hlstd{))}
+                \hlnum{1} \hlkwa{else NULL}
+        \hlstd{\}}
+    \hlstd{\}} \hlkwa{else} \hlstd{\{}
+        \hlstd{beta} \hlkwb{=} \hlkwd{abs}\hlstd{(beta)} \hlopt{>} \hlnum{0}
+        \hlstd{which} \hlkwb{=} \hlkwd{seq}\hlstd{(nr)}
+        \hlstd{ones} \hlkwb{=} \hlkwd{rep}\hlstd{(}\hlnum{1}\hlstd{,} \hlkwd{ncol}\hlstd{(beta))}
+        \hlstd{nz} \hlkwb{=} \hlkwd{as.vector}\hlstd{((beta} \hlopt{%*%} \hlstd{ones)} \hlopt{>} \hlnum{0}\hlstd{)}
+        \hlstd{which} \hlkwb{=} \hlstd{which[nz]}
+        \hlkwa{if} \hlstd{(bystep) \{}
+            \hlkwa{if} \hlstd{(}\hlkwd{length}\hlstd{(which)} \hlopt{>} \hlnum{0}\hlstd{) \{}
+                \hlstd{beta} \hlkwb{=} \hlkwd{as.matrix}\hlstd{(beta[which, ,} \hlkwc{drop} \hlstd{=} \hlnum{FALSE}\hlstd{])}
+                \hlstd{nzel} \hlkwb{=} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{which}\hlstd{)} \hlkwa{if} \hlstd{(}\hlkwd{any}\hlstd{(x))}
+                  \hlstd{which[x]} \hlkwa{else NULL}
+                \hlstd{which} \hlkwb{=} \hlkwd{apply}\hlstd{(beta,} \hlnum{2}\hlstd{, nzel, which)}
+                \hlkwa{if} \hlstd{(}\hlopt{!}\hlkwd{is.list}\hlstd{(which))}
+                  \hlstd{which} \hlkwb{=} \hlkwd{data.frame}\hlstd{(which)}
+                \hlstd{which}
+            \hlstd{\}} \hlkwa{else} \hlstd{\{}
+                \hlstd{dn} \hlkwb{=} \hlkwd{dimnames}\hlstd{(beta)[[}\hlnum{2}\hlstd{]]}
+                \hlstd{which} \hlkwb{=} \hlkwd{vector}\hlstd{(}\hlstr{"list"}\hlstd{,} \hlkwd{length}\hlstd{(dn))}
+                \hlkwd{names}\hlstd{(which)} \hlkwb{=} \hlstd{dn}
+                \hlstd{which}
+            \hlstd{\}}
+        \hlstd{\}} \hlkwa{else} \hlstd{which}
+    \hlstd{\}}
+\hlstd{\}}
+
+\hlstd{getmin} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{lambda}\hlstd{,} \hlkwc{cvm}\hlstd{,} \hlkwc{cvsd}\hlstd{) \{}
+    \hlstd{cvmin} \hlkwb{<-} \hlkwd{min}\hlstd{(cvm)}
+    \hlstd{idmin} \hlkwb{<-} \hlstd{cvm} \hlopt{<=} \hlstd{cvmin}
+    \hlstd{lambda.min} \hlkwb{<-} \hlkwd{max}\hlstd{(lambda[idmin])}
+    \hlstd{idmin} \hlkwb{<-} \hlkwd{match}\hlstd{(lambda.min, lambda)}
+    \hlstd{semin} \hlkwb{<-} \hlstd{(cvm} \hlopt{+} \hlstd{cvsd)[idmin]}
+    \hlstd{idmin} \hlkwb{<-} \hlstd{cvm} \hlopt{<=} \hlstd{semin}
+    \hlstd{lambda.1se} \hlkwb{<-} \hlkwd{max}\hlstd{(lambda[idmin])}
+    \hlkwd{list}\hlstd{(}\hlkwc{lambda.min} \hlstd{= lambda.min,} \hlkwc{lambda.1se} \hlstd{= lambda.1se)}
+\hlstd{\}}
+
+\hlstd{lambda.interp} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{lambda}\hlstd{,} \hlkwc{s}\hlstd{) \{}
+    \hlkwa{if} \hlstd{(}\hlkwd{length}\hlstd{(lambda)} \hlopt{==} \hlnum{1}\hlstd{) \{}
+        \hlstd{nums} \hlkwb{<-} \hlkwd{length}\hlstd{(s)}
+        \hlstd{left} \hlkwb{<-} \hlkwd{rep}\hlstd{(}\hlnum{1}\hlstd{, nums)}
+        \hlstd{right} \hlkwb{<-} \hlstd{left}
+        \hlstd{sfrac} \hlkwb{<-} \hlkwd{rep}\hlstd{(}\hlnum{1}\hlstd{, nums)}
+    \hlstd{\}} \hlkwa{else} \hlstd{\{}
+        \hlstd{s[s} \hlopt{>} \hlkwd{max}\hlstd{(lambda)]} \hlkwb{<-} \hlkwd{max}\hlstd{(lambda)}
+        \hlstd{s[s} \hlopt{<} \hlkwd{min}\hlstd{(lambda)]} \hlkwb{<-} \hlkwd{min}\hlstd{(lambda)}
+        \hlstd{k} \hlkwb{<-} \hlkwd{length}\hlstd{(lambda)}
+        \hlstd{sfrac} \hlkwb{<-} \hlstd{(lambda[}\hlnum{1}\hlstd{]} \hlopt{-} \hlstd{s)}\hlopt{/}\hlstd{(lambda[}\hlnum{1}\hlstd{]} \hlopt{-} \hlstd{lambda[k])}
+        \hlstd{lambda} \hlkwb{<-} \hlstd{(lambda[}\hlnum{1}\hlstd{]} \hlopt{-} \hlstd{lambda)}\hlopt{/}\hlstd{(lambda[}\hlnum{1}\hlstd{]} \hlopt{-} \hlstd{lambda[k])}
+        \hlstd{coord} \hlkwb{<-} \hlkwd{approx}\hlstd{(lambda,} \hlkwd{seq}\hlstd{(lambda), sfrac)}\hlopt{$}\hlstd{y}
+        \hlstd{left} \hlkwb{<-} \hlkwd{floor}\hlstd{(coord)}
+        \hlstd{right} \hlkwb{<-} \hlkwd{ceiling}\hlstd{(coord)}
+        \hlstd{sfrac} \hlkwb{<-} \hlstd{(sfrac} \hlopt{-} \hlstd{lambda[right])}\hlopt{/}\hlstd{(lambda[left]} \hlopt{-} \hlstd{lambda[right])}
+        \hlstd{sfrac[left} \hlopt{==} \hlstd{right]} \hlkwb{<-} \hlnum{1}
+    \hlstd{\}}
+    \hlkwd{list}\hlstd{(}\hlkwc{left} \hlstd{= left,} \hlkwc{right} \hlstd{= right,} \hlkwc{frac} \hlstd{= sfrac)}
+\hlstd{\}}
+
+\hlstd{plot.cv.uninet} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{sign.lambda} \hlstd{=} \hlnum{1}\hlstd{,} \hlkwc{...}\hlstd{) \{}
+    \hlstd{cvobj} \hlkwb{<-} \hlstd{x}
+    \hlstd{xlab} \hlkwb{<-} \hlstr{"log(Lambda)"}
+    \hlkwa{if} \hlstd{(sign.lambda} \hlopt{<} \hlnum{0}\hlstd{)}
+        \hlstd{xlab} \hlkwb{<-} \hlkwd{paste}\hlstd{(}\hlstr{"-"}\hlstd{, xlab,} \hlkwc{sep} \hlstd{=} \hlstr{""}\hlstd{)}
+    \hlstd{plot.args} \hlkwb{<-} \hlkwd{list}\hlstd{(}\hlkwc{x} \hlstd{= sign.lambda} \hlopt{*} \hlkwd{log}\hlstd{(cvobj}\hlopt{$}\hlstd{lambda),} \hlkwc{y} \hlstd{= cvobj}\hlopt{$}\hlstd{cvm,}
+        \hlkwc{ylim} \hlstd{=} \hlkwd{range}\hlstd{(cvobj}\hlopt{$}\hlstd{cvupper, cvobj}\hlopt{$}\hlstd{cvlo),} \hlkwc{xlab} \hlstd{= xlab,}
+        \hlkwc{ylab} \hlstd{= cvobj}\hlopt{$}\hlstd{name,} \hlkwc{type} \hlstd{=} \hlstr{"n"}\hlstd{)}
+    \hlstd{new.args} \hlkwb{<-} \hlkwd{list}\hlstd{(...)}
+    \hlkwa{if} \hlstd{(}\hlkwd{length}\hlstd{(new.args))}
+        \hlstd{plot.args[}\hlkwd{names}\hlstd{(new.args)]} \hlkwb{<-} \hlstd{new.args}
+    \hlkwd{do.call}\hlstd{(}\hlstr{"plot"}\hlstd{, plot.args)}
+    \hlkwd{error.bars}\hlstd{(sign.lambda} \hlopt{*} \hlkwd{log}\hlstd{(cvobj}\hlopt{$}\hlstd{lambda), cvobj}\hlopt{$}\hlstd{cvupper,}
+        \hlstd{cvobj}\hlopt{$}\hlstd{cvlo,} \hlkwc{width} \hlstd{=} \hlnum{0.01}\hlstd{,} \hlkwc{col} \hlstd{=} \hlstr{"darkgrey"}\hlstd{)}
+    \hlkwd{points}\hlstd{(sign.lambda} \hlopt{*} \hlkwd{log}\hlstd{(cvobj}\hlopt{$}\hlstd{lambda), cvobj}\hlopt{$}\hlstd{cvm,} \hlkwc{pch} \hlstd{=} \hlnum{20}\hlstd{,}
+        \hlkwc{col} \hlstd{=} \hlstr{"red"}\hlstd{)}
+    \hlkwd{axis}\hlstd{(}\hlkwc{side} \hlstd{=} \hlnum{3}\hlstd{,} \hlkwc{at} \hlstd{= sign.lambda} \hlopt{*} \hlkwd{log}\hlstd{(cvobj}\hlopt{$}\hlstd{lambda),} \hlkwc{labels} \hlstd{=} \hlkwd{paste}\hlstd{(cvobj}\hlopt{$}\hlstd{nz),}
+        \hlkwc{tick} \hlstd{=} \hlnum{FALSE}\hlstd{,} \hlkwc{line} \hlstd{=} \hlnum{0}\hlstd{)}
+    \hlkwd{abline}\hlstd{(}\hlkwc{v} \hlstd{= sign.lambda} \hlopt{*} \hlkwd{log}\hlstd{(cvobj}\hlopt{$}\hlstd{lambda.min),} \hlkwc{lty} \hlstd{=} \hlnum{3}\hlstd{)}
+    \hlkwd{abline}\hlstd{(}\hlkwc{v} \hlstd{= sign.lambda} \hlopt{*} \hlkwd{log}\hlstd{(cvobj}\hlopt{$}\hlstd{lambda.1se),} \hlkwc{lty} \hlstd{=} \hlnum{3}\hlstd{)}
+    \hlkwd{invisible}\hlstd{()}
+\hlstd{\}}
+
+\hlstd{coef.cv.uninet} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{object}\hlstd{,} \hlkwc{s} \hlstd{=} \hlkwd{c}\hlstd{(}\hlstr{"lambda.1se"}\hlstd{,} \hlstr{"lambda.min"}\hlstd{),}
+    \hlkwc{...}\hlstd{) \{}
+    \hlkwa{if} \hlstd{(}\hlkwd{is.numeric}\hlstd{(s))}
+        \hlstd{lambda} \hlkwb{<-} \hlstd{s} \hlkwa{else if} \hlstd{(}\hlkwd{is.character}\hlstd{(s)) \{}
+        \hlstd{s} \hlkwb{<-} \hlkwd{match.arg}\hlstd{(s)}
+        \hlstd{lambda} \hlkwb{<-} \hlstd{object[[s]]}
+    \hlstd{\}} \hlkwa{else} \hlkwd{stop}\hlstd{(}\hlstr{"Invalid form for s"}\hlstd{)}
+    \hlkwd{coef.uninet}\hlstd{(object}\hlopt{$}\hlstd{uninet.fit,} \hlkwc{s} \hlstd{= lambda, ...)}
+\hlstd{\}}
+
+\hlstd{coef.uninet} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{object}\hlstd{,} \hlkwc{s} \hlstd{=} \hlkwa{NULL}\hlstd{,} \hlkwc{type} \hlstd{=} \hlkwd{c}\hlstd{(}\hlstr{"coefficients"}\hlstd{,}
+    \hlstr{"nonzero"}\hlstd{),} \hlkwc{...}\hlstd{) \{}
+    \hlstd{type} \hlkwb{<-} \hlkwd{match.arg}\hlstd{(type)}
+    \hlcom{# b0 <- t(as.matrix(object$b0)) rownames(b0) <- '(Intercept)'}
+    \hlstd{nbeta} \hlkwb{<-} \hlkwd{rbind2}\hlstd{(object}\hlopt{$}\hlstd{beta)}
+    \hlkwa{if} \hlstd{(}\hlopt{!}\hlkwd{is.null}\hlstd{(s)) \{}
+        \hlstd{vnames} \hlkwb{<-} \hlkwd{dimnames}\hlstd{(nbeta)[[}\hlnum{1}\hlstd{]]}
+        \hlcom{# dimnames(nbeta) <- list(NULL, NULL)}
+        \hlstd{lambda} \hlkwb{<-} \hlstd{object}\hlopt{$}\hlstd{lambda}
+        \hlstd{lamlist} \hlkwb{<-} \hlkwd{lambda.interp}\hlstd{(lambda, s)}
+        \hlstd{nbeta} \hlkwb{<-} \hlstd{nbeta[, lamlist}\hlopt{$}\hlstd{left,} \hlkwc{drop} \hlstd{=} \hlnum{FALSE}\hlstd{]} \hlopt{*} \hlstd{lamlist}\hlopt{$}\hlstd{frac} \hlopt{+}
+            \hlstd{nbeta[, lamlist}\hlopt{$}\hlstd{right,} \hlkwc{drop} \hlstd{=} \hlnum{FALSE}\hlstd{]} \hlopt{*} \hlstd{(}\hlnum{1} \hlopt{-} \hlstd{lamlist}\hlopt{$}\hlstd{frac)}
+        \hlcom{# dimnames(nbeta) <- list(vnames, paste(seq(along = s)))}
+    \hlstd{\}}
+    \hlkwa{if} \hlstd{(type} \hlopt{==} \hlstr{"coefficients"}\hlstd{)}
+        \hlkwd{return}\hlstd{(nbeta)}
+    \hlkwa{if} \hlstd{(type} \hlopt{==} \hlstr{"nonzero"}\hlstd{)}
+        \hlkwd{return}\hlstd{(}\hlkwd{nonzero}\hlstd{(nbeta[}\hlnum{1}\hlstd{, ,} \hlkwc{drop} \hlstd{=} \hlnum{FALSE}\hlstd{],} \hlkwc{bystep} \hlstd{=} \hlnum{TRUE}\hlstd{))}
+\hlstd{\}}
+
+\hlcom{# fits weighted lasso with single predictor and no intercept}
+\hlstd{uninet} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{,} \hlkwc{nlambda} \hlstd{=} \hlnum{100}\hlstd{,} \hlkwc{method} \hlstd{=} \hlkwd{c}\hlstd{(}\hlstr{"ls"}\hlstd{),} \hlkwc{lambda.factor} \hlstd{=} \hlkwd{ifelse}\hlstd{(nobs} \hlopt{<}
+    \hlstd{nvars,} \hlnum{0.01}\hlstd{,} \hlnum{1e-04}\hlstd{),} \hlkwc{lambda} \hlstd{=} \hlkwa{NULL}\hlstd{,} \hlkwc{penalty.factor} \hlstd{=} \hlkwd{rep}\hlstd{(}\hlnum{1}\hlstd{,}
+    \hlstd{nvars)) \{}
+
+    \hlcom{# x=x_tilde_2; y=y_tilde_2; nlambda = 100; method = c('ls');}
+    \hlcom{# lambda.factor = ifelse(nobs < nvars, 0.01, 1e-04); lambda =}
+    \hlcom{# NULL; penalty.factor = rep(1, nvars); standardize = TRUE;}
+    \hlcom{# eps = 1e-08; maxit = 1e+06}
+
+    \hlstd{method} \hlkwb{<-} \hlkwd{match.arg}\hlstd{(method)}
+    \hlstd{this.call} \hlkwb{<-} \hlkwd{match.call}\hlstd{()}
+    \hlstd{y} \hlkwb{<-} \hlkwd{drop}\hlstd{(y)}
+    \hlstd{x} \hlkwb{<-} \hlkwd{as.matrix}\hlstd{(x)}
+    \hlstd{np} \hlkwb{<-} \hlkwd{dim}\hlstd{(x)}
+    \hlstd{nobs} \hlkwb{<-} \hlkwd{as.integer}\hlstd{(np[}\hlnum{1}\hlstd{])}
+    \hlstd{nvars} \hlkwb{<-} \hlkwd{as.integer}\hlstd{(np[}\hlnum{2}\hlstd{])}
+    \hlstd{vnames} \hlkwb{<-} \hlkwd{colnames}\hlstd{(x)}
+    \hlstd{N} \hlkwb{=} \hlkwd{nrow}\hlstd{(x)}
+
+    \hlkwa{if} \hlstd{(}\hlkwd{is.null}\hlstd{(vnames))}
+        \hlstd{vnames} \hlkwb{<-} \hlkwd{paste}\hlstd{(}\hlstr{"V"}\hlstd{,} \hlkwd{seq}\hlstd{(nvars),} \hlkwc{sep} \hlstd{=} \hlstr{""}\hlstd{)}
+    \hlkwa{if} \hlstd{(}\hlkwd{length}\hlstd{(y)} \hlopt{!=} \hlstd{nobs)}
+        \hlkwd{stop}\hlstd{(}\hlstr{"x and y have different number of observations"}\hlstd{)}
+    \hlkwa{if} \hlstd{(}\hlkwd{length}\hlstd{(penalty.factor)} \hlopt{!=} \hlstd{nvars)}
+        \hlkwd{stop}\hlstd{(}\hlstr{"The size of L1 penalty factor must be same as the number of input variables"}\hlstd{)}
+    \hlcom{# if (lambda2 < 0) stop('lambda2 must be non-negative') maxit}
+    \hlcom{# <- as.integer(maxit) lam2 <- as.double(lambda2)}
+    \hlstd{penalty.factor} \hlkwb{<-} \hlkwd{as.double}\hlstd{(penalty.factor)}
+    \hlcom{# pf2 <- as.double(pf2) isd <- as.integer(standardize) eps <-}
+    \hlcom{# as.double(eps) dfmax <- as.integer(dfmax) pmax <-}
+    \hlcom{# as.integer(pmax) if (!missing(exclude)) \{ jd <-}
+    \hlcom{# match(exclude, seq(nvars), 0) if (!all(jd > 0)) stop('Some}
+    \hlcom{# excluded variables out of range') jd <-}
+    \hlcom{# as.integer(c(length(jd), jd)) \} else jd <- as.integer(0)}
+
+    \hlkwa{if} \hlstd{(}\hlkwd{is.null}\hlstd{(lambda)) \{}
+        \hlkwa{if} \hlstd{(lambda.factor} \hlopt{>=} \hlnum{1}\hlstd{)}
+            \hlkwd{stop}\hlstd{(}\hlstr{"lambda.factor should be less than 1"}\hlstd{)}
+        \hlcom{# flmin <- as.double(lambda.factor)}
+        \hlstd{max_lam} \hlkwb{<-} \hlkwd{double}\hlstd{(}\hlnum{1}\hlstd{)}
+        \hlcom{# loop to figure out max lambda its the minimum lambda that}
+        \hlcom{# gives a beta of 0}
+        \hlstd{beta_tilde} \hlkwb{<-} \hlkwd{lm.fit}\hlstd{(}\hlkwc{x} \hlstd{= x,} \hlkwc{y} \hlstd{= y)} \hlopt{%>%} \hlstd{coef}
+        \hlcom{# ulam = 0}
+        \hlstd{b} \hlkwb{=} \hlnum{1}
+        \hlkwa{while} \hlstd{(b} \hlopt{!=} \hlnum{0}\hlstd{) \{}
+            \hlstd{max_lam} \hlkwb{<-} \hlstd{max_lam} \hlopt{+} \hlnum{0.001}
+            \hlstd{b} \hlkwb{<-} \hlkwd{soft}\hlstd{(}\hlkwc{beta} \hlstd{= beta_tilde,} \hlkwc{lambda} \hlstd{= max_lam,} \hlkwc{weight} \hlstd{= penalty.factor)}
+        \hlstd{\}}
+
+        \hlstd{lambda} \hlkwb{<-} \hlkwd{seq}\hlstd{(lambda.factor} \hlopt{*} \hlstd{max_lam, max_lam,} \hlkwc{length.out} \hlstd{=} \hlnum{100}\hlstd{)}
+    \hlstd{\}} \hlkwa{else} \hlstd{\{}
+        \hlstd{flmin} \hlkwb{<-} \hlkwd{as.double}\hlstd{(}\hlnum{1}\hlstd{)}
+        \hlkwa{if} \hlstd{(}\hlkwd{any}\hlstd{(lambda} \hlopt{<} \hlnum{0}\hlstd{))}
+            \hlkwd{stop}\hlstd{(}\hlstr{"lambdas should be non-negative"}\hlstd{)}
+        \hlstd{ulam} \hlkwb{<-} \hlkwd{as.double}\hlstd{(}\hlkwd{rev}\hlstd{(}\hlkwd{sort}\hlstd{(lambda)))}
+        \hlstd{nlam} \hlkwb{<-} \hlkwd{as.integer}\hlstd{(}\hlkwd{length}\hlstd{(lambda))}
+    \hlstd{\}}
+
+    \hlstd{fit} \hlkwb{<-} \hlkwd{switch}\hlstd{(method,} \hlkwc{ls} \hlstd{=} \hlkwd{soft}\hlstd{(}\hlkwc{x} \hlstd{= x,} \hlkwc{y} \hlstd{= y,} \hlkwc{lambda} \hlstd{= lambda,}
+        \hlkwc{weight} \hlstd{= penalty.factor))}
+
+    \hlstd{fit}\hlopt{$}\hlstd{lambda} \hlkwb{<-} \hlkwa{if} \hlstd{(}\hlkwd{is.null}\hlstd{(lambda))}
+        \hlkwd{lamfix}\hlstd{(lambda)} \hlkwa{else} \hlstd{lambda}
+    \hlstd{fit}\hlopt{$}\hlstd{call} \hlkwb{<-} \hlstd{this.call}
+    \hlcom{# fit$df <- nonzero(fit$beta)}
+    \hlkwd{class}\hlstd{(fit)} \hlkwb{<-} \hlkwd{c}\hlstd{(}\hlstr{"uninet"}\hlstd{,} \hlkwd{class}\hlstd{(fit))}
+    \hlstd{fit}
+\hlstd{\}}
+
+
+\hlstd{cv.uninet} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{,} \hlkwc{lambda} \hlstd{=} \hlkwa{NULL}\hlstd{,} \hlkwc{nfolds} \hlstd{=} \hlnum{10}\hlstd{,} \hlkwc{foldid}\hlstd{,}
+    \hlkwc{...}\hlstd{) \{}
+
+    \hlcom{# penalty.factor = adaptive.weights[colnames(x),] lambda =}
+    \hlcom{# NULL x = x_tilde_2 ; y = y_tilde_2}
+    \hlstd{np} \hlkwb{<-} \hlkwd{dim}\hlstd{(x)}
+    \hlstd{nobs} \hlkwb{<-} \hlkwd{as.integer}\hlstd{(np[}\hlnum{1}\hlstd{])}
+    \hlstd{nvars} \hlkwb{<-} \hlkwd{as.integer}\hlstd{(np[}\hlnum{2}\hlstd{])}
+    \hlcom{# lambda.factor = ifelse(nobs < nvars, 0.01, 1e-04) nfolds =}
+    \hlcom{# 10}
+    \hlstd{N} \hlkwb{=} \hlkwd{nrow}\hlstd{(x)}
+    \hlstd{y} \hlkwb{<-} \hlkwd{drop}\hlstd{(y)}
+
+    \hlcom{# if (is.null(lambda)) \{ if (lambda.factor >= 1)}
+    \hlcom{# stop('lambda.factor should be less than 1') #flmin <-}
+    \hlcom{# as.double(lambda.factor) ulam <- double(1) \} # loop to}
+    \hlcom{# figure out max lambda # its the minimum lambda that gives a}
+    \hlcom{# beta of 0 beta_tilde <- lm.fit(x = x, y = y) %>% coef #ulam}
+    \hlcom{# = 0 b = 1 while (b != 0) \{ ulam <- ulam + 0.001 b <-}
+    \hlcom{# soft(beta = beta_tilde, lambda = ulam, weight =}
+    \hlcom{# penalty.factor) \} lambda <- seq(lambda.factor*ulam, ulam,}
+    \hlcom{# length.out = 100)}
+
+    \hlcom{# betas for each lambda sapply(lambda, function(i) soft(beta}
+    \hlcom{# = beta_tilde, lambda = i, weight = penalty.factor))}
+
+    \hlstd{uninet.object} \hlkwb{<-} \hlkwd{uninet}\hlstd{(x, y,} \hlkwc{lambda} \hlstd{= lambda, ...)}
+
+    \hlcom{# uninet.object <- uninet(x, y, lambda = lambda,}
+    \hlcom{# penalty.factor = adaptive.weights[colnames(x_tilde_2),] )}
+
+    \hlstd{lambda} \hlkwb{<-} \hlstd{uninet.object}\hlopt{$}\hlstd{lambda}
+    \hlstd{nz} \hlkwb{<-} \hlkwd{sapply}\hlstd{(}\hlkwd{coef}\hlstd{(uninet.object,} \hlkwc{type} \hlstd{=} \hlstr{"nonzero"}\hlstd{), length)}
+
+
+    \hlkwa{if} \hlstd{(}\hlkwd{missing}\hlstd{(foldid))}
+        \hlstd{foldid} \hlkwb{=} \hlkwd{sample}\hlstd{(}\hlkwd{rep}\hlstd{(}\hlkwd{seq}\hlstd{(nfolds),} \hlkwc{length} \hlstd{= N))} \hlkwa{else} \hlstd{nfolds} \hlkwb{=} \hlkwd{max}\hlstd{(foldid)}
+    \hlkwa{if} \hlstd{(nfolds} \hlopt{<} \hlnum{3}\hlstd{)}
+        \hlkwd{stop}\hlstd{(}\hlstr{"nfolds must be bigger than 3; nfolds=10 recommended"}\hlstd{)}
+    \hlstd{outlist} \hlkwb{=} \hlkwd{as.list}\hlstd{(}\hlkwd{seq}\hlstd{(nfolds))}
+
+    \hlkwa{for} \hlstd{(i} \hlkwa{in} \hlkwd{seq}\hlstd{(nfolds)) \{}
+        \hlstd{which} \hlkwb{=} \hlstd{foldid} \hlopt{==} \hlstd{i}
+        \hlkwa{if} \hlstd{(}\hlkwd{is.matrix}\hlstd{(y))}
+            \hlstd{y_sub} \hlkwb{=} \hlstd{y[}\hlopt{!}\hlstd{which, ]} \hlkwa{else} \hlstd{y_sub} \hlkwb{=} \hlstd{y[}\hlopt{!}\hlstd{which]}
+        \hlstd{outlist[[i]]} \hlkwb{=} \hlkwd{uninet}\hlstd{(}\hlkwc{x} \hlstd{= x[}\hlopt{!}\hlstd{which, ,} \hlkwc{drop} \hlstd{=} \hlnum{FALSE}\hlstd{],}
+            \hlkwc{y} \hlstd{= y_sub,} \hlkwc{lambda} \hlstd{= lambda, ...)}
+    \hlstd{\}}
+
+    \hlstd{cvstuff} \hlkwb{<-} \hlkwd{do.call}\hlstd{(cv_lspath,} \hlkwd{list}\hlstd{(outlist, lambda, x, y,}
+        \hlstd{foldid))}
+    \hlstd{cvm} \hlkwb{<-} \hlstd{cvstuff}\hlopt{$}\hlstd{cvm}
+    \hlstd{cvsd} \hlkwb{<-} \hlstd{cvstuff}\hlopt{$}\hlstd{cvsd}
+    \hlstd{cvname} \hlkwb{<-} \hlstd{cvstuff}\hlopt{$}\hlstd{name}
+    \hlstd{out} \hlkwb{<-} \hlkwd{list}\hlstd{(}\hlkwc{lambda} \hlstd{= lambda,} \hlkwc{cvm} \hlstd{= cvm,} \hlkwc{cvsd} \hlstd{= cvsd,} \hlkwc{cvupper} \hlstd{= cvm} \hlopt{+}
+        \hlstd{cvsd,} \hlkwc{cvlo} \hlstd{= cvm} \hlopt{-} \hlstd{cvsd,} \hlkwc{name} \hlstd{= cvname,} \hlkwc{nzero} \hlstd{= nz,} \hlkwc{name} \hlstd{= cvname,}
+        \hlkwc{uninet.fit} \hlstd{= uninet.object)}
+    \hlstd{lamin} \hlkwb{<-} \hlkwd{getmin}\hlstd{(lambda, cvm, cvsd)}
+    \hlstd{obj} \hlkwb{<-} \hlkwd{c}\hlstd{(out,} \hlkwd{as.list}\hlstd{(lamin))}
+    \hlkwd{class}\hlstd{(obj)} \hlkwb{<-} \hlstr{"cv.uninet"}
+    \hlstd{obj}
+\hlstd{\}}
+
+\hlstd{Q_theta} \hlkwb{<-} \hlkwa{function}\hlstd{(}\hlkwc{x}\hlstd{,} \hlkwc{y}\hlstd{,} \hlkwc{beta}\hlstd{,} \hlkwc{gamma}\hlstd{,} \hlkwc{weights}\hlstd{,} \hlkwc{lambda.beta}\hlstd{,}
+    \hlkwc{lambda.gamma}\hlstd{,} \hlkwc{main.effect.names}\hlstd{,} \hlkwc{interaction.names}\hlstd{) \{}
+
+    \hlstd{betas.and.alphas} \hlkwb{<-} \hlkwd{convert2}\hlstd{(}\hlkwc{betas.and.gammas} \hlstd{=} \hlkwd{rbind2}\hlstd{(beta,}
+        \hlstd{gamma),} \hlkwc{main.effect.names} \hlstd{= main.effect.names,} \hlkwc{interaction.names} \hlstd{= interaction.names)}
+    \hlkwd{crossprod}\hlstd{(y} \hlopt{-} \hlstd{x} \hlopt{%*%} \hlstd{betas.and.alphas} \hlopt{-} \hlstd{b0)} \hlopt{+} \hlstd{lambda.beta} \hlopt{*}
+        \hlstd{(}\hlkwd{crossprod}\hlstd{(weights[main.effect.names, ],} \hlkwd{abs}\hlstd{(beta)))} \hlopt{+}
+        \hlstd{lambda.gamma} \hlopt{*} \hlstd{(}\hlkwd{crossprod}\hlstd{(weights[interaction.names,}
+            \hlstd{],} \hlkwd{abs}\hlstd{(gamma)))}
+\hlstd{\}}
+\end{alltt}
+\end{kframe}
+\end{knitrout}
+
+\newpage
+
+\section{Session Information}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{alltt}
+\hlkwd{sessionInfo}\hlstd{()}
+\end{alltt}
+\begin{verbatim}
+## R version 3.2.2 (2015-08-14)
+## Platform: x86_64-pc-linux-gnu (64-bit)
+## Running under: Ubuntu 14.04 LTS
+## 
+## locale:
+##  [1] LC_CTYPE=en_CA.UTF-8       LC_NUMERIC=C              
+##  [3] LC_TIME=en_CA.UTF-8        LC_COLLATE=en_CA.UTF-8    
+##  [5] LC_MONETARY=en_CA.UTF-8    LC_MESSAGES=en_CA.UTF-8   
+##  [7] LC_PAPER=en_CA.UTF-8       LC_NAME=C                 
+##  [9] LC_ADDRESS=C               LC_TELEPHONE=C            
+## [11] LC_MEASUREMENT=en_CA.UTF-8 LC_IDENTIFICATION=C       
+## 
+## attached base packages:
+## [1] stats     graphics  grDevices utils     datasets 
+## [6] base     
+## 
+## other attached packages:
+## [1] plyr_1.8.3       stringr_1.0.0    glmnet_2.0-2    
+## [4] foreach_1.4.3    Matrix_1.2-2     magrittr_1.5    
+## [7] data.table_1.9.4 knitr_1.11      
+## 
+## loaded via a namespace (and not attached):
+##  [1] Rcpp_0.12.2      lattice_0.20-33  codetools_0.2-14
+##  [4] MASS_7.3-44      chron_2.3-45     grid_3.2.2      
+##  [7] formatR_1.2.1    evaluate_0.8     highr_0.5.1     
+## [10] stringi_1.0-1    reshape2_1.4.1   iterators_1.0.8 
+## [13] tools_3.2.2      methods_3.2.2
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+\end{document}

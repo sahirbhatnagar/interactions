@@ -32,21 +32,33 @@
 #' of variables (e.g. the number of columns in the design matrix). For their 
 #' specific setting (i.e. all pairwise interactions) q = p + p*(p-1)/2
 
-uni_fun <- function(variables, x, y, include.intercept = F) {
+uni_fun <- function(variables, x, y, include.intercept = F, type="univariate") {
     
-    res <- plyr::ldply(variables, function(i) {
-        # dont need to add intercept because y has been centered
-        if (include.intercept) {
-            fit <- lm.fit(x = cbind2(rep(1, nrow(x)),x[,i, drop = F]), y = y )
-            fit$coefficients[2] 
-        } else {
-            fit <- lm.fit(x = x[,i, drop = F], y = y)
-            fit$coefficients[1] 
-        } 
-    }) %>% 
-        magrittr::set_rownames(variables) %>% 
-        magrittr::set_colnames("univariate_beta") %>% 
-        as.matrix
+  res <- switch(type,
+                univariate = {plyr::ldply(variables, function(i) {
+                  # dont need to add intercept because y has been centered
+                  if (include.intercept) {
+                    fit <- lm.fit(x = cbind2(rep(1, nrow(x)),x[,i, drop = F]), y = y )
+                    fit$coefficients[2] 
+                  } else {
+                    fit <- lm.fit(x = x[,i, drop = F], y = y)
+                    fit$coefficients[1] 
+                  } 
+                }) %>% 
+                    magrittr::set_rownames(variables) %>% 
+                    magrittr::set_colnames("univariate_beta") %>% 
+                    as.matrix},
+                ridge = {
+                  # fit the ridge to get betas and alphas
+                  glmnet::cv.glmnet(x = x, y = y, alpha = 0, 
+                                    standardize = F, 
+                                    intercept = include.intercept) %>% 
+                    # remove intercept (even if include.intercept is FALSE, coef.glmnet returns
+                    # an intercept set to 0)
+                    coef(., s = "lambda.1se") %>% 
+                    as.matrix() %>% 
+                    magrittr::extract(-1, ,drop = F)
+                })
     
     return(res)
 }
@@ -399,6 +411,13 @@ shim <- function(x, y, main.effect.names, interaction.names,
                         beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
                      rowSums() %>% as.matrix(ncol = 1))
             
+#             y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+#               (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
+#                       data.main.effects = x[,j_prime_not_in_j],
+#                       beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F],
+#                       gamma.interaction.effects = gamma_hat_next) %>% 
+#                  rowSums() %>% as.matrix(ncol = 1))
+            
             # index data.frame to figure out which j < j'
             index <- data.frame(main.effect.names, seq_along(main.effect.names), 
                                 stringsAsFactors = F) %>% 
@@ -467,6 +486,290 @@ shim <- function(x, y, main.effect.names, interaction.names,
 
 
 
+
+#' fix the betas to see if I can get the gammas
+true.betas.and.alphas <- matrix(rep(0,55),nrow = 55, ncol=1) %>% magrittr::set_rownames(colnames(X))
+true.betas.and.alphas[names(beta4),] <- beta4
+true.betas.and.gammas <- convert(true.betas.and.alphas, main_effect_names, interaction_names)
+
+shim_fix_betas <- function(x, y, main.effect.names, interaction.names, 
+                 lambda.beta, lambda.gamma, threshold, max.iter) {
+  
+  adaptive.weights <- ridge_weights(x = x, y = y, 
+                                    main.effect.names = main.effect.names, 
+                                    interaction.names = interaction.names)
+  
+  # initialization
+  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, include.intercept = F)
+  
+  # this converts the alphas to gammas
+  uni_start <- betas_and_alphas %>% 
+    convert(., main.effect.names = main.effect.names, 
+            interaction.names = interaction.names)
+  
+  # initialize beta_hat_next also because we are updating each beta individually
+  #beta_hat_previous <- beta_hat_next <- uni_start[main.effect.names, , drop = F]
+  
+  beta_hat_previous <- true.betas.and.gammas[main.effect.names, , drop = F]
+  gamma_hat_previous <- uni_start[interaction.names, , drop = F]
+  
+  m = 1 # iteration counter
+  delta = 1 # threshold initialization
+  
+  # store likelihood values at each iteration in a matrix Q
+  Q <- matrix(c(seq(0,max.iter), rep(NA,max.iter+1)), nrow = max.iter+1, ncol = 2) %>% 
+    magrittr::set_colnames(c("iteration", "Q.theta"))
+  
+  # matrix to store betas and gammas of every iteration
+  betas <- matrix(nrow = length(main.effect.names), ncol = max.iter + 1)
+  gammas <- matrix(nrow = length(interaction.names), ncol = max.iter + 1)
+  
+  betas[,1] <- beta_hat_previous
+  gammas[,1] <- gamma_hat_previous
+  
+  # store the value of the likelihood at the 0th iteration
+  Q[1,2] <- Q_theta(x = x, y = y, beta = beta_hat_previous, 
+                    gamma = gamma_hat_previous, weights = adaptive.weights, 
+                    lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                    main.effect.names = main.effect.names, 
+                    interaction.names = interaction.names)
+  
+  print(paste("Iteration: 0, Q(theta):",Q[1,2]))
+  
+  while (threshold < delta && m < max.iter){
+    
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # update gamma (interaction parameter)
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    y_tilde <- y - x[,main.effect.names] %*% beta_hat_previous
+    
+    
+    x_tilde <- xtilde(interaction.names = interaction.names, 
+                      data.main.effects = x[,main.effect.names],
+                      beta.main.effects = beta_hat_previous)
+    
+    # update the gammas using glmnet
+    # x_tilde only has the interaction columns, therefore, penalty.factor 
+    # must also only include the weights for the interaction terms
+    fit_gamma_hat_glmnet <- glmnet::glmnet(x = x_tilde, 
+                                           y = y_tilde, 
+                                           nlambda = 1, 
+                                           lambda = lambda.gamma, 
+                                           penalty.factor = adaptive.weights[colnames(x_tilde),],
+                                           standardize = T, intercept = T)
+    
+    # get gamma coefficients and remove intercept
+    gamma_hat_next <- coef(fit_gamma_hat_glmnet, s = lambda.gamma) %>% 
+      as.matrix %>% 
+      magrittr::extract(-1, ,drop=F)
+    
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # update beta (main effect parameter) step 4 of algortihm in Choi et al
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    beta_hat_next <- true.betas.and.gammas[main.effect.names, , drop = F]
+
+    Q[m+1,2] <- Q_theta(x = x, y = y, beta = beta_hat_next, 
+                        gamma = gamma_hat_next, weights = adaptive.weights, 
+                        lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                        main.effect.names = main.effect.names, 
+                        interaction.names = interaction.names)
+    
+    betas[,m+1] <- true.betas.and.gammas[main.effect.names, , drop = F]
+    gammas[,m+1] <- gamma_hat_next
+    
+    delta <- abs(Q[m,2] - Q[m+1,2])/abs(Q[m,2])
+    
+    print(paste("Iteration:",m, ", Q(theta):",Q[m+1,2]))
+    
+    m = m+1
+    
+    beta_hat_previous <- beta_hat_next
+    
+  }
+  
+  return(list(beta = betas, gamma = gammas, Q = Q, m = m))
+  
+}
+
+
+
+#' fix the gammas to see if I can recover the betas
+shim_fix_gamma <- function(x, y, main.effect.names, interaction.names, 
+                 lambda.beta, lambda.gamma, threshold, max.iter) {
+  
+  adaptive.weights <- ridge_weights(x = x, y = y, 
+                                    main.effect.names = main.effect.names, 
+                                    interaction.names = interaction.names)
+  
+  # initialization
+  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, include.intercept = F)
+  
+  # this converts the alphas to gammas
+  uni_start <- betas_and_alphas %>% 
+    convert(., main.effect.names = main.effect.names, 
+            interaction.names = interaction.names)
+  
+  # initialize beta_hat_next also because we are updating each beta individually
+  #beta_hat_previous <- beta_hat_next <- uni_start[main.effect.names, , drop = F]
+  
+  beta_hat_previous <- uni_start[main.effect.names, , drop = F]
+  gamma_hat_previous <- true.betas.and.gammas[interaction.names, , drop = F]
+  
+  m = 1 # iteration counter
+  delta = 1 # threshold initialization
+  
+  # store likelihood values at each iteration in a matrix Q
+  Q <- matrix(c(seq(0,max.iter), rep(NA,max.iter+1)), nrow = max.iter+1, ncol = 2) %>% 
+    magrittr::set_colnames(c("iteration", "Q.theta"))
+  
+  # matrix to store betas and gammas of every iteration
+  betas <- matrix(nrow = length(main.effect.names), ncol = max.iter + 1)
+  gammas <- matrix(nrow = length(interaction.names), ncol = max.iter + 1)
+  
+  betas[,1] <- beta_hat_previous
+  gammas[,1] <- gamma_hat_previous
+  
+  # store the value of the likelihood at the 0th iteration
+  Q[1,2] <- Q_theta(x = x, y = y, beta = beta_hat_previous, 
+                    gamma = gamma_hat_previous, weights = adaptive.weights, 
+                    lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                    main.effect.names = main.effect.names, 
+                    interaction.names = interaction.names)
+  
+  print(paste("Iteration: 0, Q(theta):",Q[1,2]))
+  
+  while (threshold < delta && m < max.iter){
+    
+    # get gamma coefficients and remove intercept
+    gamma_hat_next <- true.betas.and.gammas[interaction.names, , drop = F]
+    
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # update beta (main effect parameter) step 4 of algortihm in Choi et al
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    beta_hat_next <- beta_hat_previous
+    
+    for (j in main.effect.names) {
+      
+      # determine the main effects not in j
+      j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
+
+      
+      y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+        (xtilde(interaction.names = interaction.names[-grep(j, interaction.names)],
+                    data.main.effects = x[,j_prime_not_in_j],
+                    beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
+           rowSums() %>% as.matrix(ncol = 1))
+      
+#       y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+#         (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
+#                 data.main.effects = x[,j_prime_not_in_j],
+#                 beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F], gamma.interaction.effects = gamma_hat_next) %>% 
+#            rowSums() %>% as.matrix(ncol = 1))
+      
+      # index data.frame to figure out which j < j'
+      index <- data.frame(main.effect.names, seq_along(main.effect.names), 
+                          stringsAsFactors = F) %>% 
+        magrittr::set_colnames(c("main.effect.names","index"))
+      
+      # j' less than j
+      j.prime.less <- index[which(index[,"index"] < index[which(index$main.effect.names == j),2]),
+                            "main.effect.names"]
+      
+      # the if conditions in term1 and term2 are to check if there are 
+      # any variables greater or less than j            
+      term_1 <- if (length(j.prime.less) != 0) { 
+        x[,paste(j.prime.less,j,sep = ":")] %*% 
+          (gamma_hat_next[paste(j.prime.less,j,sep = ":"),, drop = F] * 
+             beta_hat_next[j.prime.less,,drop = F])
+      } else 0
+      
+      # j' greater than j
+      j.prime.greater <- index[which(index[,"index"] > index[which(index$main.effect.names == j),2]),
+                               "main.effect.names"]
+      
+      term_2 <- if (length(j.prime.greater) != 0) { 
+        x[,paste(j,j.prime.greater,sep = ":")] %*% 
+          (gamma_hat_next[paste(j, j.prime.greater,sep = ":"),, drop = F] * 
+             beta_hat_next[j.prime.greater,,drop = F]) 
+      } else 0
+      
+      x_tilde_2 <- x[,j, drop = F] + term_1 + term_2
+      
+      # need to add a column of zeros to the design matrix, because
+      # glmnet returns an error if the design matrix only has one 
+      # column. also need to give this column a weight of 0 
+      beta_hat_next[j,] <- glmnet(x = cbind2(x_tilde_2, rep(0,nrow(x_tilde_2))), 
+                                  y = y_tilde_2, 
+                                  nlambda = 1, intercept = T,
+                                  lambda = lambda.beta,
+                                  standardize = T,
+                                  penalty.factor = c(adaptive.weights[colnames(x_tilde_2),],0)) %>%  
+        coef(., s = lambda.beta) %>% 
+        as.matrix %>% 
+        magrittr::extract(colnames(x_tilde_2), ,drop=F)
+      
+#       beta_hat_next[j,] <- soft(x = x_tilde_2, 
+#                                   y = y_tilde_2, 
+#                                   lambda = lambda.beta,
+#                                   weight = adaptive.weights[colnames(x_tilde_2),])
+      
+    }
+    
+    Q[m+1,2] <- Q_theta(x = x, y = y, beta = beta_hat_next, 
+                        gamma = gamma_hat_next, weights = adaptive.weights, 
+                        lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                        main.effect.names = main.effect.names, 
+                        interaction.names = interaction.names)
+    
+    betas[,m+1] <- beta_hat_next
+    gammas[,m+1] <- gamma_hat_next
+    
+    delta <- abs(Q[m,2] - Q[m+1,2])/abs(Q[m,2])
+    
+    print(paste("Iteration:",m, ", Q(theta):",Q[m+1,2]))
+    
+    m = m+1
+    
+    beta_hat_previous <- beta_hat_next
+    
+  }
+  
+  return(list(beta = betas, gamma = gammas, Q = Q, m = m))
+  
+}
+
+
+
+
+#' modified x_tilde for step 4
+xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects, gamma.interaction.effects){
+  
+  # create output matrix
+  xtildas <- matrix(ncol = length(interaction.names), 
+                    nrow = nrow(data.main.effects)) %>% 
+    magrittr::set_colnames(interaction.names)  
+  
+  for (k in interaction.names) {
+    
+    # get names of main effects corresponding to interaction
+    main <- k %>% 
+      stringr::str_split(":") %>% 
+      unlist
+    
+    # step 4 to calculate x tilda
+    xtildas[,k] <- prod(beta.main.effects[main,]) * gamma.interaction.effects[k,] *  
+      data.main.effects[,main[1],drop = F] * 
+      data.main.effects[,main[2],drop = F]
+  }
+  
+  return(xtildas)
+}
+
+
+
+
 #' Update Weights based on betas and gammas. Currently not being used.
 #' 
 #' @description uses betas and gammas to update weights. this is used to update
@@ -524,8 +827,8 @@ soft <- function(x, y, beta, lambda, weight) {
     if (missing(x) & missing(y) & missing(beta)) stop("user must supply x AND y, or beta but not both")
     if (missing(x) & missing(y)) return(list("beta" = sign(beta) * pmax(0, abs(beta) - lambda*weight)))
     if (missing(beta)) {
-        #(beta <- lm.fit(x = cbind2(rep(1, length(y)),x), y = y) %>% coef %>% magrittr::extract(2))
-        (beta <- lm.fit(x = x[,1,drop=F], y = y) %>% coef %>% magrittr::extract(1))
+        (beta <- lm.fit(x = cbind2(rep(1, length(y)),scale(x)), y = y) %>% coef %>% magrittr::extract(2))
+        #(beta <- lm.fit(x = x[,1,drop=F], y = y) %>% coef %>% magrittr::extract(1))
         
         #lm.fit(x = cbind2(rep(1, length(y_tilde_2)),x_tilde_2), y = y_tilde_2) %>% coef %>% magrittr::extract(2)
         b_lasso <- sign(beta)* pmax(0, abs(beta) - lambda*weight)

@@ -69,5 +69,12 @@ if(!pckg) {
     require(gcdnet)
 }
 
+pckg = try(require(hierNet))
+if(!pckg) {
+    cat("Installing 'hierNet' from CRAN\n")
+    getPckg("hierNet")
+    require(hierNet)
+}
+
 
 

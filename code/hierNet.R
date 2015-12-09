@@ -37,7 +37,7 @@ plot(fitcv)
 
 fitcv
 
-d <- fit$th[,,which(fitcv$lamhat.1se==fit$lamlist)] %>% Matrix::Csparse
+(d <- fit$th[,,which(fitcv$lamhat.1se==fit$lamlist)])
 
 fit$bp[,which(fitcv$lamhat.1se==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat.1se==fit$lamlist), drop = F]
 

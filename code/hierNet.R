@@ -58,3 +58,27 @@ plot(fitcv)
 fit$bp[,which(fitcv$lamhat.1se==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat.1se==fit$lamlist), drop = F]
 
 
+
+
+
+
+
+# Their example -----------------------------------------------------------
+
+
+set.seed(12)
+x=matrix(rnorm(100*10),ncol=10)
+x=scale(x,TRUE,TRUE)
+y=x[,1]+2*x[,2]+ x[,1]*x[,2]+3*rnorm(100)
+fit=hierNet.path(x,y)
+fitcv=hierNet.cv(fit,x,y)
+print(fitcv)
+plot(fitcv)
+
+fit$th[,,which(fitcv$lamhat.1se==fit$lamlist)]
+fit$bp[,which(fitcv$lamhat.1se==fit$lamlist), drop = F] - fit$bn[,which(fitcv$lamhat.1se==fit$lamlist), drop = F]
+
+
+
+
+

@@ -169,33 +169,37 @@ convert2 <- function(betas.and.gammas, main.effect.names, interaction.names) {
 #' data
 #' @param beta.main.effects data frame or matrix containing the coefficients 
 #' of main effects
+#' @param gamma.interaction.effects data frame or matrix containing the 
+#' gamma parameters
 #' @return matrix of working X's (xtilde) of dimension n x (p*(p-1)/2)
-#' @note Only the main effects are used in this step, 
-#' however you can provide this function, either the betas.and.alphas or 
-#' betas.and.gammas because only the betas (main effect) parameters 
-#' are used in the calculation of xtilde
-xtilde <- function(interaction.names, data.main.effects, beta.main.effects){
+#' @note this function is a modified x_tilde for step 4 because we 
+#' thought maybe there was a type. Math and results suggests that 
+#' there IS a typo. This is now being used 
+xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects, 
+                       gamma.interaction.effects){
+  
+  # create output matrix
+  xtildas <- matrix(ncol = length(interaction.names), 
+                    nrow = nrow(data.main.effects)) %>% 
+    magrittr::set_colnames(interaction.names)  
+  
+  for (k in interaction.names) {
     
-    # create output matrix
-    xtildas <- matrix(ncol = length(interaction.names), 
-                      nrow = nrow(data.main.effects)) %>% 
-               magrittr::set_colnames(interaction.names)  
+    # get names of main effects corresponding to interaction
+    main <- k %>% 
+      stringr::str_split(":") %>% 
+      unlist
     
-    for (k in interaction.names) {
-        
-        # get names of main effects corresponding to interaction
-        main <- k %>% 
-                stringr::str_split(":") %>% 
-                unlist
-        
-        # step 3 to calculate x tilda
-        xtildas[,k] <- prod(beta.main.effects[main,]) * 
-                       data.main.effects[,main[1],drop = F] * 
-                       data.main.effects[,main[2],drop = F]
-    }
-    
-    return(xtildas)
+    # step 4 to calculate x tilda
+    xtildas[,k] <- prod(beta.main.effects[main,]) * gamma.interaction.effects[k,] *  
+      data.main.effects[,main[1],drop = F] * 
+      data.main.effects[,main[2],drop = F]
+  }
+  
+  return(xtildas)
 }
+
+
 
 
 #' Calculate Adaptive Weights based on Ridge Regression
@@ -394,7 +398,7 @@ shim <- function(x, y, main.effect.names, interaction.names,
                                                nlambda = 1, 
                                                lambda = lambda.gamma, 
                                                penalty.factor = adaptive.weights[colnames(x_tilde),],
-                                               standardize = T, intercept = T)
+                                               standardize = F, intercept = F)
         
         # get gamma coefficients and remove intercept
         gamma_hat_next <- coef(fit_gamma_hat_glmnet, s = lambda.gamma) %>% 
@@ -412,18 +416,18 @@ shim <- function(x, y, main.effect.names, interaction.names,
             # determine the main effects not in j
             j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
             
-            y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
-                (xtilde(interaction.names = interaction.names[-grep(j, interaction.names)],
-                        data.main.effects = x[,j_prime_not_in_j],
-                        beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
-                     rowSums() %>% as.matrix(ncol = 1))
-            
 #             y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
-#               (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
-#                       data.main.effects = x[,j_prime_not_in_j],
-#                       beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F],
-#                       gamma.interaction.effects = gamma_hat_next) %>% 
-#                  rowSums() %>% as.matrix(ncol = 1))
+#                 (xtilde(interaction.names = interaction.names[-grep(j, interaction.names)],
+#                         data.main.effects = x[,j_prime_not_in_j],
+#                         beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
+#                      rowSums() %>% as.matrix(ncol = 1))
+            
+            y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+              (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
+                      data.main.effects = x[,j_prime_not_in_j],
+                      beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F],
+                      gamma.interaction.effects = gamma_hat_next) %>% 
+                 rowSums() %>% as.matrix(ncol = 1))
             
             # index data.frame to figure out which j < j'
             index <- data.frame(main.effect.names, seq_along(main.effect.names), 
@@ -459,9 +463,9 @@ shim <- function(x, y, main.effect.names, interaction.names,
             # column. also need to give this column a weight of 0 
             beta_hat_next[j,] <- glmnet(x = cbind2(x_tilde_2, rep(0,nrow(x_tilde_2))), 
                                         y = y_tilde_2, 
-                                        nlambda = 1, intercept = T,
+                                        nlambda = 1, intercept = F,
                                         lambda = lambda.beta,
-                                        standardize = T,
+                                        standardize = F,
                                         penalty.factor = c(adaptive.weights[colnames(x_tilde_2),],0)) %>%  
                                 coef(., s = lambda.beta) %>% 
                                 as.matrix %>% 
@@ -678,18 +682,18 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
       # determine the main effects not in j
       j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
       
-      y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
-        (xtilde(interaction.names = interaction.names[-grep(j, interaction.names)],
-                data.main.effects = x[,j_prime_not_in_j],
-                beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
-           rowSums() %>% as.matrix(ncol = 1))
+#       y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+#         (xtilde(interaction.names = interaction.names[-grep(j, interaction.names)],
+#                 data.main.effects = x[,j_prime_not_in_j],
+#                 beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
+#            rowSums() %>% as.matrix(ncol = 1))
       
-#                   y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
-#                     (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
-#                             data.main.effects = x[,j_prime_not_in_j],
-#                             beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F],
-#                             gamma.interaction.effects = gamma_hat_next) %>% 
-#                        rowSums() %>% as.matrix(ncol = 1))
+                  y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+                    (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
+                            data.main.effects = x[,j_prime_not_in_j],
+                            beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F],
+                            gamma.interaction.effects = gamma_hat_next) %>% 
+                       rowSums() %>% as.matrix(ncol = 1))
       
       # index data.frame to figure out which j < j'
       index <- data.frame(main.effect.names, seq_along(main.effect.names), 
@@ -725,9 +729,9 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
       # column. also need to give this column a weight of 0 
       beta_hat_next[j,] <- glmnet(x = cbind2(x_tilde_2, rep(0,nrow(x_tilde_2))), 
                                   y = y_tilde_2, 
-                                  nlambda = 1, intercept = T,
+                                  nlambda = 1, intercept = F,
                                   lambda = lambda.beta,
-                                  standardize = T,
+                                  standardize = F,
                                   penalty.factor = c(adaptive.weights[colnames(x_tilde_2),],0)) %>%  
         coef(., s = lambda.beta) %>% 
         as.matrix %>% 
@@ -758,13 +762,11 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
 }
 
 
-
-
-#' modified x_tilde for step 4 because we thought maybe there was a type. 
-#' Results suggests that there is not a type. Currently not being used as we 
-#' determined that there isn't a typo.
-xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects, 
-                       gamma.interaction.effects){
+#' Calculate working X's. We have established that there was a typo in the 
+#' paper. This function is not being used.
+#' the algorithm in the paper is missing a gamma in the calculation
+#' of the working residuals
+xtilde <- function(interaction.names, data.main.effects, beta.main.effects){
   
   # create output matrix
   xtildas <- matrix(ncol = length(interaction.names), 
@@ -778,14 +780,15 @@ xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects,
       stringr::str_split(":") %>% 
       unlist
     
-    # step 4 to calculate x tilda
-    xtildas[,k] <- prod(beta.main.effects[main,]) * gamma.interaction.effects[k,] *  
+    # step 3 to calculate x tilda
+    xtildas[,k] <- prod(beta.main.effects[main,]) * 
       data.main.effects[,main[1],drop = F] * 
       data.main.effects[,main[2],drop = F]
   }
   
   return(xtildas)
 }
+
 
 
 

@@ -26,17 +26,18 @@
 #' @param y response (matrix form) of dimension n x 1
 #' @param include.intercept logical if intercept should be fitted. default is 
 #' FALSE. Should be set to TRUE if y is not centered
+#' @param The procedure used to estimate betas and alphas.
+#' must be the character "ridge" or "univariate". 
 #' @return OLS coefficients as a q x 1 data.frame
 #' @note to stay consistent with the notation of Choi et al., p is defined as
 #' the number of main effects. I have introduced q as being the total number
 #' of variables (e.g. the number of columns in the design matrix). For their 
 #' specific setting (i.e. all pairwise interactions) q = p + p*(p-1)/2
 
-uni_fun <- function(variables, x, y, include.intercept = F, type="univariate") {
+uni_fun <- function(variables, x, y, include.intercept = F, type="ridge") {
     
   res <- switch(type,
                 univariate = {plyr::ldply(variables, function(i) {
-                  # dont need to add intercept because y has been centered
                   if (include.intercept) {
                     fit <- lm.fit(x = cbind2(rep(1, nrow(x)),x[,i, drop = F]), y = y )
                     fit$coefficients[2] 
@@ -55,7 +56,7 @@ uni_fun <- function(variables, x, y, include.intercept = F, type="univariate") {
                                     intercept = include.intercept) %>% 
                     # remove intercept (even if include.intercept is FALSE, coef.glmnet returns
                     # an intercept set to 0)
-                    coef(., s = "lambda.1se") %>% 
+                    coef(., s = "lambda.min") %>% 
                     as.matrix() %>% 
                     magrittr::extract(-1, ,drop = F)
                 })
@@ -314,6 +315,9 @@ Q_theta <- function(x, y, beta, gamma, weights,
 #' than threshold)
 #' @param max.iter the maximum number of iterations. If algorithm hasn't 
 #' converged, try increasing this number.
+#' @param initialization.type The procedure used to initialize betas and gammas.
+#' must be the character "ridge" or "univariate". This argument is passed to the
+#' \code{uni_fun} function
 #' @return A list containing the following 
 #' \enumerate{
 #'   \item beta p x niter matrix of beta coefficients at each iteration
@@ -324,14 +328,17 @@ Q_theta <- function(x, y, beta, gamma, weights,
 #' }
 
 shim <- function(x, y, main.effect.names, interaction.names, 
-                 lambda.beta, lambda.gamma, threshold, max.iter) {
+                 lambda.beta, lambda.gamma, threshold, max.iter, 
+                 initialization.type = "ridge") {
     
     adaptive.weights <- ridge_weights(x = x, y = y, 
                                        main.effect.names = main.effect.names, 
                                        interaction.names = interaction.names)
     
     # initialization
-    betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, include.intercept = F)
+    betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, 
+                                include.intercept = F,
+                                type = initialization.type)
     
     # this converts the alphas to gammas
     uni_start <- betas_and_alphas %>% 
@@ -459,6 +466,9 @@ shim <- function(x, y, main.effect.names, interaction.names,
                                 coef(., s = lambda.beta) %>% 
                                 as.matrix %>% 
                                 magrittr::extract(colnames(x_tilde_2), ,drop=F)
+            
+            
+            
         }
         
         Q[m+1,2] <- Q_theta(x = x, y = y, beta = beta_hat_next, 
@@ -485,22 +495,26 @@ shim <- function(x, y, main.effect.names, interaction.names,
 }
 
 
-
-
-#' fix the betas to see if I can get the gammas
-true.betas.and.alphas <- matrix(rep(0,55),nrow = 55, ncol=1) %>% magrittr::set_rownames(colnames(X))
-true.betas.and.alphas[names(beta4),] <- beta4
-true.betas.and.gammas <- convert(true.betas.and.alphas, main_effect_names, interaction_names)
+#' Fit the Strong Heredity Interactions Model with Fixed Betas
+#' 
+#' @description This is a test function to see if the algorithm is converging
+#' if it only needs to estimate one set of parameters. In this function we are
+#' fixing the betas at the true betas, and trying to estimate the gammas.
+#' @param fixed.beta p x 1 matrix of betas, with rows labelled accordingly
+#' @note refer to \code{shim} function for argument definitions and return value
 
 shim_fix_betas <- function(x, y, main.effect.names, interaction.names, 
-                 lambda.beta, lambda.gamma, threshold, max.iter) {
+                 lambda.beta, lambda.gamma, threshold, max.iter, 
+                 initialization.type = "ridge", fixed.betas) {
   
   adaptive.weights <- ridge_weights(x = x, y = y, 
                                     main.effect.names = main.effect.names, 
                                     interaction.names = interaction.names)
   
   # initialization
-  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, include.intercept = F)
+  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, 
+                              include.intercept = F,
+                              type = initialization.type)
   
   # this converts the alphas to gammas
   uni_start <- betas_and_alphas %>% 
@@ -510,7 +524,7 @@ shim_fix_betas <- function(x, y, main.effect.names, interaction.names,
   # initialize beta_hat_next also because we are updating each beta individually
   #beta_hat_previous <- beta_hat_next <- uni_start[main.effect.names, , drop = F]
   
-  beta_hat_previous <- true.betas.and.gammas[main.effect.names, , drop = F]
+  beta_hat_previous <- fixed.betas
   gamma_hat_previous <- uni_start[interaction.names, , drop = F]
   
   m = 1 # iteration counter
@@ -567,15 +581,15 @@ shim_fix_betas <- function(x, y, main.effect.names, interaction.names,
     # update beta (main effect parameter) step 4 of algortihm in Choi et al
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     
-    beta_hat_next <- true.betas.and.gammas[main.effect.names, , drop = F]
-
+    beta_hat_next <- fixed.betas
+    
     Q[m+1,2] <- Q_theta(x = x, y = y, beta = beta_hat_next, 
                         gamma = gamma_hat_next, weights = adaptive.weights, 
                         lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
                         main.effect.names = main.effect.names, 
                         interaction.names = interaction.names)
     
-    betas[,m+1] <- true.betas.and.gammas[main.effect.names, , drop = F]
+    betas[,m+1] <- beta_hat_next
     gammas[,m+1] <- gamma_hat_next
     
     delta <- abs(Q[m,2] - Q[m+1,2])/abs(Q[m,2])
@@ -584,8 +598,6 @@ shim_fix_betas <- function(x, y, main.effect.names, interaction.names,
     
     m = m+1
     
-    beta_hat_previous <- beta_hat_next
-    
   }
   
   return(list(beta = betas, gamma = gammas, Q = Q, m = m))
@@ -593,17 +605,25 @@ shim_fix_betas <- function(x, y, main.effect.names, interaction.names,
 }
 
 
-
-#' fix the gammas to see if I can recover the betas
+#' Fit the Strong Heredity Interactions Model with Fixed Gammas
+#' 
+#' @description This is a test function to see if the algorithm is converging
+#' if it only needs to estimate one set of parameters. In this function we are
+#' fixing the gammas at the true gammas, and trying to estimate the betas.
+#' @param fixed.gamma p(p-1)/2 x 1 matrix of betas, with rows labelled accordingly
+#' @note refer to \code{shim} function for argument definitions and return value
 shim_fix_gamma <- function(x, y, main.effect.names, interaction.names, 
-                 lambda.beta, lambda.gamma, threshold, max.iter) {
+                 lambda.beta, lambda.gamma, threshold, max.iter, 
+                 initialization.type = "ridge", fixed.gamma) {
   
   adaptive.weights <- ridge_weights(x = x, y = y, 
                                     main.effect.names = main.effect.names, 
                                     interaction.names = interaction.names)
   
   # initialization
-  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, include.intercept = F)
+  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, 
+                              include.intercept = F,
+                              type = initialization.type)
   
   # this converts the alphas to gammas
   uni_start <- betas_and_alphas %>% 
@@ -614,7 +634,7 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
   #beta_hat_previous <- beta_hat_next <- uni_start[main.effect.names, , drop = F]
   
   beta_hat_previous <- uni_start[main.effect.names, , drop = F]
-  gamma_hat_previous <- true.betas.and.gammas[interaction.names, , drop = F]
+  gamma_hat_previous <- fixed.gamma
   
   m = 1 # iteration counter
   delta = 1 # threshold initialization
@@ -641,8 +661,11 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
   
   while (threshold < delta && m < max.iter){
     
-    # get gamma coefficients and remove intercept
-    gamma_hat_next <- true.betas.and.gammas[interaction.names, , drop = F]
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # update gamma (interaction parameter)
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    gamma_hat_next <- fixed.gamma
     
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # update beta (main effect parameter) step 4 of algortihm in Choi et al
@@ -654,19 +677,19 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
       
       # determine the main effects not in j
       j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
-
       
       y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
         (xtilde(interaction.names = interaction.names[-grep(j, interaction.names)],
-                    data.main.effects = x[,j_prime_not_in_j],
-                    beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
+                data.main.effects = x[,j_prime_not_in_j],
+                beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
            rowSums() %>% as.matrix(ncol = 1))
       
-#       y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
-#         (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
-#                 data.main.effects = x[,j_prime_not_in_j],
-#                 beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F], gamma.interaction.effects = gamma_hat_next) %>% 
-#            rowSums() %>% as.matrix(ncol = 1))
+#                   y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+#                     (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
+#                             data.main.effects = x[,j_prime_not_in_j],
+#                             beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F],
+#                             gamma.interaction.effects = gamma_hat_next) %>% 
+#                        rowSums() %>% as.matrix(ncol = 1))
       
       # index data.frame to figure out which j < j'
       index <- data.frame(main.effect.names, seq_along(main.effect.names), 
@@ -709,12 +732,6 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
         coef(., s = lambda.beta) %>% 
         as.matrix %>% 
         magrittr::extract(colnames(x_tilde_2), ,drop=F)
-      
-#       beta_hat_next[j,] <- soft(x = x_tilde_2, 
-#                                   y = y_tilde_2, 
-#                                   lambda = lambda.beta,
-#                                   weight = adaptive.weights[colnames(x_tilde_2),])
-      
     }
     
     Q[m+1,2] <- Q_theta(x = x, y = y, beta = beta_hat_next, 
@@ -743,8 +760,11 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
 
 
 
-#' modified x_tilde for step 4
-xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects, gamma.interaction.effects){
+#' modified x_tilde for step 4 because we thought maybe there was a type. 
+#' Results suggests that there is not a type. Currently not being used as we 
+#' determined that there isn't a typo.
+xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects, 
+                       gamma.interaction.effects){
   
   # create output matrix
   xtildas <- matrix(ncol = length(interaction.names), 

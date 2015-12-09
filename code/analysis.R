@@ -24,10 +24,23 @@ true.betas.and.alphas <- matrix(rep(0,55),nrow = 55, ncol=1) %>%
 true.betas.and.alphas[names(beta4),] <- beta4
 true.betas.and.gammas <- convert(true.betas.and.alphas, main_effect_names, interaction_names)
 
+library(proftools)
+library(graphics)
+
+Rprof(tmp <- tempfile())
+source("https://raw.githubusercontent.com/noamross/noamtools/master/R/proftable.R")
+
 res <- shim(x = X, y = Y, main.effect.names = main_effect_names, 
             interaction.names = interaction_names,
             lambda.beta = 1.5, lambda.gamma = 2, threshold = 1e-5, max.iter = 500, 
             initialization.type = "ridge")
+
+Rprof()
+summaryRprof(tmp)
+proftable(tmp)
+
+plotProfileCallGraph(readProfileData(tmp),
+                     score = "total")
 
 # plot of cofficients at each iteration
 matplot(res$beta[,1:res$m] %>% t, type = "l", ylab="")

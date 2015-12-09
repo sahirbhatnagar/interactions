@@ -21,7 +21,7 @@ source("functions.R")
 
 true.betas.and.alphas <- matrix(rep(0,55),nrow = 55, ncol=1) %>% 
   magrittr::set_rownames(colnames(X))
-true.betas.and.alphas[names(beta4),] <- beta4
+true.betas.and.alphas[names(beta1),] <- beta1
 true.betas.and.gammas <- convert(true.betas.and.alphas, main_effect_names, interaction_names)
 
 res <- shim(x = X, y = Y, main.effect.names = main_effect_names, 

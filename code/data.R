@@ -63,7 +63,7 @@ apply(X, 2, sd) %>% sum
 
 # generate response with user defined signal to noise ratio and center 
 # the response
-y.star <- X[,names(beta4)] %*% beta4
+y.star <- X[,names(beta1)] %*% beta1
 error <- rnorm(n)
 k <- sqrt(var(y.star)/(signal_to_noise_ratio*var(error))) 
 Y <- (y.star + k*error) %>% scale(center = TRUE, scale = FALSE) 

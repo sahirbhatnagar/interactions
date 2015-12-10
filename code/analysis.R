@@ -21,26 +21,33 @@ source("functions.R")
 
 true.betas.and.alphas <- matrix(rep(0,55),nrow = 55, ncol=1) %>% 
   magrittr::set_rownames(colnames(X))
-true.betas.and.alphas[names(beta1),] <- beta1
+true.betas.and.alphas[names(beta5),] <- beta5
 true.betas.and.gammas <- convert(true.betas.and.alphas, main_effect_names, interaction_names)
-
-library(proftools)
-library(graphics)
-
-Rprof(tmp <- tempfile())
-source("https://raw.githubusercontent.com/noamross/noamtools/master/R/proftable.R")
 
 res <- shim(x = X, y = Y, main.effect.names = main_effect_names, 
             interaction.names = interaction_names,
-            lambda.beta = 1.5, lambda.gamma = 2, threshold = 1e-5, max.iter = 500, 
+            lambda.beta = 1, lambda.gamma = 0.5, threshold = 1e-5, max.iter = 500, 
             initialization.type = "ridge")
 
-Rprof()
-summaryRprof(tmp)
-proftable(tmp)
 
-plotProfileCallGraph(readProfileData(tmp),
-                     score = "total")
+library(doParallel)
+library(foreach)
+library(parallel)
+options("mc.cores" = 10L)
+getOption("mc.cores", 5L)
+
+parallel::detectCores()
+
+res <- parallel::mcmapply(shim, lambda.beta = seq(0,10,1), lambda.gamma = seq(0,10,1), 
+                   MoreArgs = list(x = X, y = Y, main.effect.names = main_effect_names, 
+                                   interaction.names = interaction_names,
+                                   threshold = 1e-5, max.iter = 500, 
+                                   initialization.type = "ridge"), SIMPLIFY = F)
+
+res[[1]]$Q[complete.cases(res[[1]]$Q),]
+
+res[[1]]$beta[complete.cases(res[[1]]$beta)]
+
 
 # plot of cofficients at each iteration
 matplot(res$beta[,1:res$m] %>% t, type = "l", ylab="")

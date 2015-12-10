@@ -32,9 +32,9 @@ source("https://raw.githubusercontent.com/noamross/noamtools/master/R/proftable.
 
 res <- shim(x = X, y = Y, main.effect.names = main_effect_names, 
             interaction.names = interaction_names,
-            lambda.beta = 1.5, lambda.gamma = 2, threshold = 1e-5, max.iter = 500, 
-            initialization.type = "ridge")
-
+            lambda.beta = 0.5, lambda.gamma = 2, threshold = 1e-5, max.iter = 500, 
+            initialization.type = "univariate")
+res$beta
 Rprof()
 summaryRprof(tmp)
 proftable(tmp)
@@ -49,6 +49,7 @@ matplot(res$gamma[,1:res$m] %>% t, type = "l", ylab="")
 cbind2(round(res$beta[,1:res$m],2), true.betas.and.gammas[main_effect_names,,drop=F])
 cbind2(round(res$gamma[,1:res$m],2), true.betas.and.gammas[interaction_names,,drop=F])
 
+res$beta[,complete.cases(t(res$beta))]
 
 
 

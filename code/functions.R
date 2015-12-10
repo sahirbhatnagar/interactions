@@ -494,7 +494,7 @@ shim <- function(x, y, main.effect.names, interaction.names,
         
     }
     
-    return(list(beta = betas, gamma = gammas, Q = Q, m = m))
+    return(list(beta = betas[,complete.cases(t(betas))], gamma = gammas[,complete.cases(t(gammas))], Q = Q[complete.cases(Q),], m = m))
     
 }
 

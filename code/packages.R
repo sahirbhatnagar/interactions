@@ -76,5 +76,12 @@ if(!pckg) {
     require(hierNet)
 }
 
+pckg = try(require(parallel))
+if(!pckg) {
+  cat("Installing 'parallel' from CRAN\n")
+  getPckg("parallel")
+  require(parallel)
+}
+
 
 

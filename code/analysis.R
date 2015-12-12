@@ -9,7 +9,7 @@
 ##################################
 
 rm(list = ls())
-options(scipen=0, digits = 3)
+options(scipen=999, digits = 10)
 
 source("packages.R")
 source("data.R")

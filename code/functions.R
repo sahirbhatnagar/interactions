@@ -10,29 +10,26 @@
 
 ## ---- functions ----
 
-#' Univariate regressions 
+#' Univariate regressions
 #' 
-#' @description function used to create initial estimates in fitting 
-#' algorithm
-#' @param variables character vector of variable names for which you want 
-#' the univariate regression estimate. Must be contained in the 
-#' column names of x
-#' @param x design matrix of dimension n x q, where n is the number of 
-#' subjects and q is the total number of variables. This must include all main 
-#' effects and interactions as well, with column names corresponding to the 
-#' names of the variables (e.g. x1, x2, ...) and their 
-#' interactions (e.g. x1:x2, x1:x3, ...). All columns should be scaled to have 
-#' mean 0 and variance 1
+#' @description function used to create initial estimates in fitting algorithm
+#' @param variables character vector of variable names for which you want the
+#'   univariate regression estimate. Must be contained in the column names of x
+#' @param x design matrix of dimension n x q, where n is the number of subjects
+#'   and q is the total number of variables. This must include all main effects
+#'   and interactions as well, with column names corresponding to the names of
+#'   the variables (e.g. x1, x2, ...) and their interactions (e.g. x1:x2, x1:x3,
+#'   ...). All columns should be scaled to have mean 0 and variance 1
 #' @param y response (matrix form) of dimension n x 1
 #' @param include.intercept logical if intercept should be fitted. default is 
-#' FALSE. Should be set to TRUE if y is not centered
-#' @param The procedure used to estimate betas and alphas.
-#' must be the character "ridge" or "univariate". 
+#'   FALSE. Should be set to TRUE if y is not centered
+#' @param The procedure used to estimate betas and alphas. must be the character
+#'   "ridge" or "univariate".
 #' @return OLS coefficients as a q x 1 data.frame
-#' @note to stay consistent with the notation of Choi et al., p is defined as
-#' the number of main effects. I have introduced q as being the total number
-#' of variables (e.g. the number of columns in the design matrix). For their 
-#' specific setting (i.e. all pairwise interactions) q = p + p*(p-1)/2
+#' @note to stay consistent with the notation of Choi et al., p is defined as 
+#'   the number of main effects. I have introduced q as being the total number 
+#'   of variables (e.g. the number of columns in the design matrix). For their 
+#'   specific setting (i.e. all pairwise interactions) q = p + p*(p-1)/2
 
 uni_fun <- function(variables, x, y, include.intercept = F, type="ridge") {
     
@@ -66,30 +63,27 @@ uni_fun <- function(variables, x, y, include.intercept = F, type="ridge") {
 
 #' Convert alphas to gammas
 #' 
-#' @description function that takes a vector of betas (which are the 
-#' main effects) and alphas (which are the interaction effects) and converts 
-#' the alphas to gammas.
-#' note that 
-#' \deqn{y = \beta_0 + \beta_1 x_1 + \cdots + \beta_p x_p 
-#' + \alpha_{12} x_1 x_2 + \cdots + \alpha_{p-1,p} x_p x_{p-1} }
-#' and
-#' \deqn{\alpha_{ij} = \gamma_{ij} * \beta_i*\beta_j , i < j}
-#' this function is used because the fitting algorithm estimates the gammas,
-#' and furthermore, the L1 penalty is placed on the gammas. It is used only
-#' in the initialization step.
+#' @description function that takes a vector of betas (which are the main
+#'   effects) and alphas (which are the interaction effects) and converts the
+#'   alphas to gammas. note that \deqn{y = \beta_0 + \beta_1 x_1 + \cdots +
+#'   \beta_p x_p + \alpha_{12} x_1 x_2 + \cdots + \alpha_{p-1,p} x_p x_{p-1} } 
+#'   and \deqn{\alpha_{ij} = \gamma_{ij} * \beta_i*\beta_j , i < j} this
+#'   function is used because the fitting algorithm estimates the gammas, and
+#'   furthermore, the L1 penalty is placed on the gammas. It is used only in the
+#'   initialization step.
 #' @param betas.and.alphas q x 1 data.frame or matrix of main effects and 
-#' interaction estimates. For example the output from the \code{uni_fun} 
-#' function. The rownames must be appropriately labelled because these labels 
-#' will be used in other functions
+#'   interaction estimates. For example the output from the \code{uni_fun} 
+#'   function. The rownames must be appropriately labelled because these labels 
+#'   will be used in other functions
 #' @param main.effect.names character vector of main effects names
 #' @param interaction.names character vector of interaction names. must be 
-#' separated by a ':' (e.g. x1:x2)
-#' @param epsilon threshold to avoid division by a very small beta e.g. if 
-#' any of the main effects are less than epsilon, set gamma to zero. This 
-#' should not really be an important parameter because this function is only
-#' used in the initialization step, where the intial estimates are from OLS or
-#' ridge regression and therefor should not be very close to 0
-#' @return a labelled q x 1 data.frame of betas and gammas 
+#'   separated by a ':' (e.g. x1:x2)
+#' @param epsilon threshold to avoid division by a very small beta e.g. if any
+#'   of the main effects are less than epsilon, set gamma to zero. This should
+#'   not really be an important parameter because this function is only used in
+#'   the initialization step, where the intial estimates are from OLS or ridge
+#'   regression and therefor should not be very close to 0
+#' @return a labelled q x 1 data.frame of betas and gammas
 
 convert <- function(betas.and.alphas, main.effect.names, interaction.names, 
                     epsilon = 1e-5) {
@@ -119,18 +113,18 @@ convert <- function(betas.and.alphas, main.effect.names, interaction.names,
 
 #' Convert gammas to alphas
 #' 
-#' @description function that takes a vector of betas (which are the 
-#' main effects) and gammas and converts the alphas to gammas.
-#' This function is used to calculate the linear predictor of the likelihood
-#' function (the Q function in the fitting algorithm)
-#' @param betas.and.gammas q x 1 data.frame or matrix of betas and 
-#' gamma estimates. For example the output from the \code{convert} 
-#' function. The rownames must be appropriately labelled because these labels 
-#' will be used in other functions
+#' @description function that takes a vector of betas (which are the main
+#'   effects) and gammas and converts the alphas to gammas. This function is
+#'   used to calculate the linear predictor of the likelihood function (the Q
+#'   function in the fitting algorithm)
+#' @param betas.and.gammas q x 1 data.frame or matrix of betas and gamma
+#'   estimates. For example the output from the \code{convert} function. The
+#'   rownames must be appropriately labelled because these labels will be used
+#'   in other functions
 #' @param main.effect.names character vector of main effects names
 #' @param interaction.names character vector of interaction names. must be 
-#' separated by a ':' (e.g. x1:x2)
-#' @return a labelled q x 1 data.frame of betas and alphas 
+#'   separated by a ':' (e.g. x1:x2)
+#' @return a labelled q x 1 data.frame of betas and alphas
 
 convert2 <- function(betas.and.gammas, main.effect.names, interaction.names) {
 
@@ -159,36 +153,71 @@ convert2 <- function(betas.and.gammas, main.effect.names, interaction.names) {
     
 }
 
-#' Calculate working X's 
+
+
+#' Calculate working X's to update Gammas.
 #' 
-#' @description function used to calculate working X's (xtilde) in 
-#' step 3 of algorithm
+#' @description function used to calculate working X's (xtilde) in step 3 of
+#'   algorithm
 #' @param interaction.names character vector of interaction names. must be 
-#' separated by a ':' (e.g. x1:x2)
+#'   separated by a ':' (e.g. x1:x2)
 #' @param data.main.effects data frame or matrix containing the main effects 
-#' data
-#' @param beta.main.effects data frame or matrix containing the coefficients 
-#' of main effects
-#' @param gamma.interaction.effects data frame or matrix containing the 
-#' gamma parameters
+#'   data
+#' @param beta.main.effects data frame or matrix containing the coefficients of
+#'   main effects
+#' @param nlambda number of tuning parameters
 #' @return matrix of working X's (xtilde) of dimension n x (p*(p-1)/2)
-#' @note this function is a modified x_tilde for step 4 because we 
-#' thought maybe there was a type. Math and results suggests that 
-#' there IS a typo. This is now being used 
-xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects, 
-                       gamma.interaction.effects){
+xtilde <- function(interaction.names, data.main.effects, beta.main.effects){
   
   # create output matrix
   xtildas <- matrix(ncol = length(interaction.names), 
-                    nrow = nrow(data.main.effects)) %>% 
-    magrittr::set_colnames(interaction.names)  
+                    nrow = nrow(data.main.effects))
+  colnames(xtildas) <- interaction.names
   
   for (k in interaction.names) {
     
     # get names of main effects corresponding to interaction
-    main <- k %>% 
-      stringr::str_split(":") %>% 
-      unlist
+    main <- unlist(stringr::str_split(k,":"))
+    
+    # step 3 to calculate x tilda
+    xtildas[,k] <- prod(beta.main.effects[main,]) * 
+      data.main.effects[,main[1],drop = F] * 
+      data.main.effects[,main[2],drop = F]
+  }
+  
+  return(xtildas)
+}
+
+
+
+#' Calculate working X's to update Betas
+#' 
+#' @description function used to calculate working X's (xtilde) in step 4 of
+#'   algorithm
+#' @param interaction.names character vector of interaction names. must be 
+#'   separated by a ':' (e.g. x1:x2)
+#' @param data.main.effects data frame or matrix containing the main effects 
+#'   data
+#' @param beta.main.effects data frame or matrix containing the coefficients of
+#'   main effects
+#' @param gamma.interaction.effects data frame or matrix containing the gamma
+#'   parameters
+#' @return matrix of working X's (xtilde) of dimension n x (p*(p-1)/2)
+#' @note this function is a modified x_tilde for step 4 because we thought maybe
+#'   there was a type. Math and results suggests that there IS a typo. This is
+#'   now being used
+xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects, 
+                       gamma.interaction.effects){
+  
+  # create output matrix. no pipe is faster
+  xtildas <- matrix(ncol = length(interaction.names), 
+                    nrow = nrow(data.main.effects)) 
+  colnames(xtildas) <- interaction.names
+  
+  for (k in interaction.names) {
+    
+    # get names of main effects corresponding to interaction
+    main <- unlist(stringr::str_split(k, ":"))
     
     # step 4 to calculate x tilda
     xtildas[,k] <- prod(beta.main.effects[main,]) * gamma.interaction.effects[k,] *  
@@ -204,20 +233,19 @@ xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects,
 
 #' Calculate Adaptive Weights based on Ridge Regression
 #' 
-#' @description uses ridge regression from glmnet package to calculate 
-#' the weights used in the fitting algorithm. 
-#' @param x design matrix of dimension n x q, where n is the number of 
-#' subjects and q is the total number of variables. This must include all main 
-#' effects and interactions as well, with column names corresponding to the 
-#' names of the variables (e.g. x1, x2, ...) and their 
-#' interactions (e.g. x1:x2, x1:x3, ...). All columns should be scaled to have 
-#' mean 0 and variance 1
+#' @description uses ridge regression from glmnet package to calculate the
+#'   weights used in the fitting algorithm.
+#' @param x design matrix of dimension n x q, where n is the number of subjects
+#'   and q is the total number of variables. This must include all main effects
+#'   and interactions as well, with column names corresponding to the names of
+#'   the variables (e.g. x1, x2, ...) and their interactions (e.g. x1:x2, x1:x3,
+#'   ...). All columns should be scaled to have mean 0 and variance 1
 #' @param y response (matrix form) of dimension n x 1
 #' @param main.effect.names character vector of main effects names
 #' @param interaction.names character vector of interaction names. must be 
-#' separated by a ':' (e.g. x1:x2)
+#'   separated by a ':' (e.g. x1:x2)
 #' @param include.intercept logical if intercept should be fitted. default is 
-#' FALSE. Should be set to TRUE if y is not centered
+#'   FALSE. Should be set to TRUE if y is not centered
 #' @return q x 1 matrix of weights
 
 ridge_weights <- function(x, y, main.effect.names, interaction.names, 
@@ -259,25 +287,23 @@ ridge_weights <- function(x, y, main.effect.names, interaction.names,
 
 #' Likelihood function
 #' 
-#' @description calculates likelihood function. Used to assess convergence
-#' of fitting algorithm. This corresponds to the Q(theta) function in the 
-#' paper
-#' @param x design matrix of dimension n x q, where n is the number of 
-#' subjects and q is the total number of variables. This must include all main 
-#' effects and interactions as well, with column names corresponding to the 
-#' names of the variables (e.g. x1, x2, ...) and their 
-#' interactions (e.g. x1:x2, x1:x3, ...). All columns should be scaled to have 
-#' mean 0 and variance 1
+#' @description calculates likelihood function. Used to assess convergence of
+#'   fitting algorithm. This corresponds to the Q(theta) function in the paper
+#' @param x design matrix of dimension n x q, where n is the number of subjects
+#'   and q is the total number of variables. This must include all main effects
+#'   and interactions as well, with column names corresponding to the names of
+#'   the variables (e.g. x1, x2, ...) and their interactions (e.g. x1:x2, x1:x3,
+#'   ...). All columns should be scaled to have mean 0 and variance 1
 #' @param y response (matrix form) of dimension n x 1
 #' @param beta p x 1 matrix of main effect estimates
 #' @param gamma p*(p-1)/2 x 1 matrix of gamma estimates
-#' @param weights adaptive weights calculated by \code{ridge_weights} function
-#' with rownames corresponding to column names of x
+#' @param weights adaptive weights calculated by \code{ridge_weights} function 
+#'   with rownames corresponding to column names of x
 #' @param lambda.beta a single tuning parameter for main effects
 #' @param lambda.gamma a single tuning parameter for gammas
 #' @param main.effect.names character vector of main effects names
 #' @param interaction.names character vector of interaction names. must be 
-#' separated by a ':' (e.g. x1:x2)
+#'   separated by a ':' (e.g. x1:x2)
 #' @return value of likelihood function
 
 Q_theta <- function(x, y, beta, gamma, weights, 
@@ -298,38 +324,34 @@ Q_theta <- function(x, y, beta, gamma, weights,
 
 #' Fit the Strong Heredity Interactions Model
 #' 
-#' @description This is the main workhorse function that fits the 
-#' Strong Heredity Interactions Model (SHIM) of Choi et al 2009 (JASA) for 
-#' a given pair of tuning paramters
-#' @param x design matrix of dimension n x q, where n is the number of 
-#' subjects and q is the total number of variables. This must include all main 
-#' effects and interactions as well, with column names corresponding to the 
-#' names of the variables (e.g. x1, x2, ...) and their 
-#' interactions (e.g. x1:x2, x1:x3, ...). All columns should be scaled to have 
-#' mean 0 and variance 1
+#' @description This is the main workhorse function that fits the Strong
+#'   Heredity Interactions Model (SHIM) of Choi et al 2009 (JASA) for a given
+#'   pair of tuning paramters
+#' @param x design matrix of dimension n x q, where n is the number of subjects
+#'   and q is the total number of variables. This must include all main effects
+#'   and interactions as well, with column names corresponding to the names of
+#'   the variables (e.g. x1, x2, ...) and their interactions (e.g. x1:x2, x1:x3,
+#'   ...). All columns should be scaled to have mean 0 and variance 1
 #' @param y response (matrix form) of dimension n x 1 (should be centered)
 #' @param main.effect.names character vector of main effects names
 #' @param interaction.names character vector of interaction names. must be 
-#' separated by a ':' (e.g. x1:x2)
+#'   separated by a ':' (e.g. x1:x2)
 #' @param lambda.beta a single tuning parameter for main effects
 #' @param lambda.gamma a single tuning parameter for gammas
-#' @param threshold this corresponds to delta in step 5 of the algorithm. It
-#' is the threhold for the relative difference between likelihoods at successive
-#' iterations (i.e. the algortihm will stop once the relative difference is less
-#' than threshold)
+#' @param threshold this corresponds to delta in step 5 of the algorithm. It is
+#'   the threhold for the relative difference between likelihoods at successive 
+#'   iterations (i.e. the algortihm will stop once the relative difference is
+#'   less than threshold)
 #' @param max.iter the maximum number of iterations. If algorithm hasn't 
-#' converged, try increasing this number.
+#'   converged, try increasing this number.
 #' @param initialization.type The procedure used to initialize betas and gammas.
-#' must be the character "ridge" or "univariate". This argument is passed to the
-#' \code{uni_fun} function
-#' @return A list containing the following 
-#' \enumerate{
-#'   \item beta p x niter matrix of beta coefficients at each iteration
-#'   \item gamma p*(p-1)/2 x niter matrix of gamma coefficients at each iteration
-#'   \item Q a matrix with the iteration number and corresponding value
-#'   of the likelihood function
-#'   \item m the number of iterations
-#' }
+#'   must be the character "ridge" or "univariate". This argument is passed to
+#'   the \code{uni_fun} function
+#' @return A list containing the following \enumerate{ \item beta p x niter
+#'   matrix of beta coefficients at each iteration \item gamma p*(p-1)/2 x niter
+#'   matrix of gamma coefficients at each iteration \item Q a matrix with the
+#'   iteration number and corresponding value of the likelihood function \item m
+#'   the number of iterations }
 
 shim <- function(x, y, main.effect.names, interaction.names, 
                  lambda.beta, lambda.gamma, threshold, max.iter, 
@@ -498,12 +520,525 @@ shim <- function(x, y, main.effect.names, interaction.names,
     
 }
 
+#' Fit Strong Heredity model with one iteration just to get the 
+#' sequence of lambda_gamma and lambda_beta 
+shim_once <- function(x, y, main.effect.names, interaction.names, 
+                 lambda.beta, lambda.gamma, threshold, max.iter, 
+                 initialization.type = "ridge") {
+  
+  adaptive.weights <- ridge_weights(x = x, y = y, 
+                                    main.effect.names = main.effect.names, 
+                                    interaction.names = interaction.names)
+  
+  # initialization
+  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, 
+                              include.intercept = F,
+                              type = initialization.type)
+  
+  # this converts the alphas to gammas
+  uni_start <- betas_and_alphas %>% 
+    convert(., main.effect.names = main.effect.names, 
+            interaction.names = interaction.names)
+  
+  # initialize beta_hat_next also because we are updating each beta individually
+  #beta_hat_previous <- beta_hat_next <- uni_start[main.effect.names, , drop = F]
+  
+  beta_hat_previous <- uni_start[main.effect.names, , drop = F]
+  gamma_hat_previous <- uni_start[interaction.names, , drop = F]
+  
+  m = 1 # iteration counter
+  delta = 1 # threshold initialization
+  
+  # store likelihood values at each iteration in a matrix Q
+  Q <- matrix(c(seq(0,max.iter), rep(NA,max.iter+1)), nrow = max.iter+1, ncol = 2) %>% 
+    magrittr::set_colnames(c("iteration", "Q.theta"))
+  
+  # matrix to store betas and gammas of every iteration
+  betas <- matrix(nrow = length(main.effect.names), ncol = max.iter + 1)
+  gammas <- matrix(nrow = length(interaction.names), ncol = max.iter + 1)
+  
+  betas[,1] <- beta_hat_previous
+  gammas[,1] <- gamma_hat_previous
+  
+  # store the value of the likelihood at the 0th iteration
+  Q[1,2] <- Q_theta(x = x, y = y, beta = beta_hat_previous, 
+                    gamma = gamma_hat_previous, weights = adaptive.weights, 
+                    lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                    main.effect.names = main.effect.names, 
+                    interaction.names = interaction.names)
+  
+  print(paste("Iteration: 0, Q(theta):",Q[1,2]))
+  
+  while (threshold < delta && m < max.iter){
+    
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # update gamma (interaction parameter)
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    y_tilde <- y - x[,main.effect.names] %*% beta_hat_previous
+    
+    
+    x_tilde <- xtilde(interaction.names = interaction.names, 
+                      data.main.effects = x[,main.effect.names],
+                      beta.main.effects = beta_hat_previous)
+    
+    # update the gammas using glmnet
+    # x_tilde only has the interaction columns, therefore, penalty.factor 
+    # must also only include the weights for the interaction terms
+    fit_gamma_hat_glmnet <- glmnet::glmnet(x = x_tilde, 
+                                           y = y_tilde, 
+                                           nlambda = 1, 
+                                           lambda = lambda.gamma, 
+                                           penalty.factor = adaptive.weights[colnames(x_tilde),],
+                                           standardize = F, intercept = F)
+    
+    # get gamma coefficients and remove intercept
+    gamma_hat_next <- coef(fit_gamma_hat_glmnet, s = lambda.gamma) %>% 
+      as.matrix %>% 
+      magrittr::extract(-1, ,drop=F)
+    
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    # update beta (main effect parameter) step 4 of algortihm in Choi et al
+    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+    
+    beta_hat_next <- beta_hat_previous
+    
+    for (j in main.effect.names) {
+      
+      # determine the main effects not in j
+      j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
+      
+      #             y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+      #                 (xtilde(interaction.names = interaction.names[-grep(j, interaction.names)],
+      #                         data.main.effects = x[,j_prime_not_in_j],
+      #                         beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
+      #                      rowSums() %>% as.matrix(ncol = 1))
+      
+      y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
+        (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
+                    data.main.effects = x[,j_prime_not_in_j],
+                    beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F],
+                    gamma.interaction.effects = gamma_hat_next) %>% 
+           rowSums() %>% as.matrix(ncol = 1))
+      
+      # index data.frame to figure out which j < j'
+      index <- data.frame(main.effect.names, seq_along(main.effect.names), 
+                          stringsAsFactors = F) %>% 
+        magrittr::set_colnames(c("main.effect.names","index"))
+      
+      # j' less than j
+      j.prime.less <- index[which(index[,"index"] < index[which(index$main.effect.names == j),2]),
+                            "main.effect.names"]
+      
+      # the if conditions in term1 and term2 are to check if there are 
+      # any variables greater or less than j            
+      term_1 <- if (length(j.prime.less) != 0) { 
+        x[,paste(j.prime.less,j,sep = ":")] %*% 
+          (gamma_hat_next[paste(j.prime.less,j,sep = ":"),, drop = F] * 
+             beta_hat_next[j.prime.less,,drop = F])
+      } else 0
+      
+      # j' greater than j
+      j.prime.greater <- index[which(index[,"index"] > index[which(index$main.effect.names == j),2]),
+                               "main.effect.names"]
+      
+      term_2 <- if (length(j.prime.greater) != 0) { 
+        x[,paste(j,j.prime.greater,sep = ":")] %*% 
+          (gamma_hat_next[paste(j, j.prime.greater,sep = ":"),, drop = F] * 
+             beta_hat_next[j.prime.greater,,drop = F]) 
+      } else 0
+      
+      x_tilde_2 <- x[,j, drop = F] + term_1 + term_2
+      
+      # need to add a column of zeros to the design matrix, because
+      # glmnet returns an error if the design matrix only has one 
+      # column. also need to give this column a weight of 0 
+      beta_hat_next[j,] <- glmnet(x = cbind2(x_tilde_2, rep(0,nrow(x_tilde_2))), 
+                                  y = y_tilde_2, 
+                                  nlambda = 1, intercept = F,
+                                  lambda = lambda.beta,
+                                  standardize = F,
+                                  penalty.factor = c(adaptive.weights[colnames(x_tilde_2),],0)) %>%  
+        coef(., s = lambda.beta) %>% 
+        as.matrix %>% 
+        magrittr::extract(colnames(x_tilde_2), ,drop=F)
+      
+      
+      
+    }
+    
+    Q[m+1,2] <- Q_theta(x = x, y = y, beta = beta_hat_next, 
+                        gamma = gamma_hat_next, weights = adaptive.weights, 
+                        lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                        main.effect.names = main.effect.names, 
+                        interaction.names = interaction.names)
+    
+    betas[,m+1] <- beta_hat_next
+    gammas[,m+1] <- gamma_hat_next
+    
+    delta <- abs(Q[m,2] - Q[m+1,2])/abs(Q[m,2])
+    
+    print(paste("Iteration:",m, ", Q(theta):",Q[m+1,2]))
+    
+    m = m+1
+    
+    beta_hat_previous <- beta_hat_next
+    
+  }
+  
+  return(list(beta = betas, gamma = gammas, Q = Q, m = m))
+  
+}
+
+#' Repeat each column of a matrix, n times
+repcol <- function(x, n) {
+  s = NCOL(x)
+  matrix(x[, rep(1:s, each = n)], nrow = NROW(x), ncol = NCOL(x) * n)
+}
+
+
+#' Calculate Standard Deviation with factor N
+#' 
+#' @description this is to calculate standard deviation but with divisor of n
+#'   and not n-1
+#' @param i a vector of numerics
+
+mysd <- function(i) sqrt(crossprod(i - mean(i))/length(i))
+
+
+#' Calculate Sequence of Tuning Parameters
+#' 
+#' @description function to calculate the sequence of tuning parameters. This
+#'   formula is taken from section 2.5 of the glmnet paper in Journal of Stat.
+#'   Software
+#'   
+#' @param x matrix with rows as subjects and columns as variables
+#' @param y a 1 column matrix
+#' @param lambda.factor The factor for getting the minimal lambda in lambda 
+#'   sequence, where min(lambda) = lambda.factor * max(lambda). max(lambda) is 
+#'   the smallest value of lambda for which all coefficients are zero. The 
+#'   default depends on the relationship between N (the number of rows in the 
+#'   matrix of predictors) and p (the number of predictors). If N > p, the 
+#'   default is 0.0001, close to zero. If N<p, the default is 0.01. A very small
+#'   value of lambda.factor will lead to a saturated fit.
+#' @param nlambda the number of lambda values - default is 100.
+#' @param scale_x should the columns of x be scaled - default is FALSE
+#' @param center_y should y be mean centered - default is FALSE
+
+lambda_sequence <- function(x, y, 
+                       lambda.factor = ifelse(nobs < nvars, 0.01, 1e-04),
+                       nlambda = 100, scale_x = F, center_y = F) {
+  
+  # when scaling, first you center then you standardize
+  np <- dim(x)
+  nobs <- as.integer(np[1])
+  nvars <- as.integer(np[2])
+  
+  sx <- if (scale_x) apply(x,2, function(i) scale(i, center = TRUE, scale = mysd(i))) else x
+  sy <- if (center_y) as.vector(scale(y, center = T, scale = F)) else as.vector(y)
+  lambda.max <- max(abs(colSums( sy * sx))/nrow(sx))
+  
+  rev(exp(seq(log(lambda.factor*lambda.max), log(lambda.max), length.out = nlambda)))
+}
+
+#' Fit Strong Heredity Model for Multiple Lambdas
+#' @param nlambda.gamma number of tuning parameters for gamma
+#' @param nlambda.beta number of tuning parameters for beta
+#' @param cores number of cores to use. this is used in the step to calculate
+#'   
+#' @note let glmnet choose the lambda_betas and lambda_gammas
+#' @note the index of the tuning parameters is as follows. If for example there
+#'   are 10 lambda_gammas, and 20 lambda_betas, then the first lambda_gamma gets
+#'   repeated 20 times. So the first twenty entries of tuning parameters 
+#'   correspond to 1 lambda_gamma and the 20 lambda_betas
+shim_multiple <- function(x, y, main.effect.names, interaction.names, 
+                 lambda.beta = NULL, lambda.gamma = NULL, threshold, max.iter, 
+                 initialization.type = "ridge", 
+                 nlambda.gamma = 20, 
+                 nlambda.beta = 20,
+                 cores = 2) {
+  
+  x = X; y = Y; main.effect.names = main_effect_names;
+  interaction.names = interaction_names;
+  lambda.beta = NULL ; lambda.gamma = NULL
+  threshold = 1e-5 ; max.iter = 500 ; initialization.type = "ridge";
+  nlambda.gamma = 10; nlambda.beta = 20; cores = 2
+  
+  # total number of tuning parameters
+  nlambda = nlambda.gamma * nlambda.beta
+  
+  adaptive.weights <- ridge_weights(x = x, y = y, 
+                                    main.effect.names = main.effect.names, 
+                                    interaction.names = interaction.names)
+  
+  # initialization
+  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, 
+                              include.intercept = F,
+                              type = initialization.type)
+  
+  # this converts the alphas to gammas
+  uni_start <- convert(betas_and_alphas, main.effect.names = main.effect.names, 
+            interaction.names = interaction.names)
+  
+  # need to create a matrix here instead of a 1 column vector  
+  # dim1: # of variables, 
+  # dim2: # of lambdas (we will fix at 100 which is the glmnet default)
+
+  beta_hat_previous <- replicate(nlambda, uni_start[main.effect.names, , drop = F], simplify = "matrix")
+  rownames(beta_hat_previous) <- main_effect_names
+  
+  gamma_hat_previous <- replicate(nlambda, uni_start[interaction.names, , drop = F], simplify = "matrix")
+  rownames(gamma_hat_previous) <- interaction_names
+  
+  # convert gamma and beta previous to lists
+  beta_hat_previous_list <- lapply(seq_len(ncol(beta_hat_previous)), function(i) beta_hat_previous[,i, drop = F])
+  gamma_hat_previous_list <- lapply(seq_len(ncol(gamma_hat_previous)), function(i) gamma_hat_previous[,i, drop = F])
+  
+  m = 1 # iteration counter
+  delta = 1 # threshold initialization
+  
+  # store likelihood values at each iteration in a matrix Q
+  # piping using magrittr::set_colnames is slower here
+  # rows are the iterations, columns are the index of the sequence of 
+  # lambda_gammas and lambda_betas
+  # rows: iteration number
+  # columns: tuning parameter
+  Q <- matrix(nrow = max.iter + 1, ncol = nlambda)
+
+  # 3d array to store betas and gammas of every iteration for each pair of tuning 
+  # parameters
+  # dim1: # of variables, 
+  # dim2: # of iterations
+  # dim3: # of lambdas 
+  betas <- replicate(nlambda, matrix(nrow = length(main.effect.names), ncol = max.iter + 1))
+  gammas <- replicate(nlambda, matrix(nrow = length(interaction.names), ncol = max.iter + 1))
+  
+  dim(betas);dim(gammas)
+  
+  # store the initial values which are the same for each pair of tuning parameters
+  betas[,1,] <- beta_hat_previous_list[[1]]
+  
+  gammas[,1,] <- gamma_hat_previous_list[[1]]
+  
+  
+  # need to get sequence of lambda_betas and lambda_gammas from glmnet
+  # on first iteration. Then we will use these on subsequent iterations
+  
+  if (is.null(lambda.gamma) & is.null(lambda.beta)) {
+    
+#     # store the value of the likelihood at the 0th iteration
+#     Q[1,2] <- Q_theta(x = x, y = y, beta = beta_hat_previous, 
+#                       gamma = gamma_hat_previous, weights = adaptive.weights, 
+#                       lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+#                       main.effect.names = main.effect.names, 
+#                       interaction.names = interaction.names)
+#     
+#     print(paste("Iteration: 0, Q(theta):",Q[1,2]))
+
+    while (threshold < delta && m < max.iter){
+      
+      #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      # update gamma (interaction parameter)
+      #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      
+      # this is a nsubjects x lambda matrix for each tuning parameter stored in a list
+      # convert y_tilde to list for use in glmnet function
+      # each element of the list corresponds to a tuning parameter      
+      y_tilde_list <- lapply(beta_hat_previous_list, function(i) y - x[,main.effect.names,drop = F] %*% i)
+
+#       x_tilde <- xtilde(interaction.names = interaction.names, 
+#                         data.main.effects = x[,main.effect.names],
+#                         beta.main.effects = beta_hat_previous[,1, drop = F])
+      
+      # calculate x_tilde for each beta vector corresponding to a diffent tuning parameter
+      x_tilde_list <- lapply(beta_hat_previous_list, 
+                             function(i) xtilde(interaction.names = interaction.names, 
+                                                data.main.effects = x[,main.effect.names, drop = F],
+                                                beta.main.effects = i)) 
+      
+      # adaptive weight for each tuning parameter. currently this is the
+      # same for all tuning parameters, but I am coding it here
+      # for flexibility in case we want to change the weights at each iteration
+      adaptive_weights_list <- lapply(x_tilde_list, function(i)
+                                      adaptive.weights[colnames(i),])
+      
+      # update the gammas using glmnet
+      # x_tilde only has the interaction columns, therefore, penalty.factor 
+      # must also only include the weights for the interaction terms
+      # on the first iteration we only need to pass the first element of y_tilde
+      # and x_tilde because they are all the same 
+      
+      if (m == 1) {
+      
+      fit_gamma_hat_glmnet <- glmnet::glmnet(x = x_tilde_list[[1]], 
+                                             y = y_tilde_list[[1]], 
+                                             lambda = NULL,
+                                             nlambda = nlambda.gamma,
+                                             penalty.factor = adaptive.weights[colnames(x_tilde_list[[1]]),],
+                                             standardize = F, intercept = F)
+      # record sequence of lambda_gammas. this will be used in subsequent iterations
+      # the lambdas generated by glmnet go from large to small
+      lambda_gamma_glmnet <- fit_gamma_hat_glmnet$lambda
+      
+      # convert to a list
+      lambda_gamma_glmnet_list <- lapply(seq_len(length(lambda_gamma_glmnet)), 
+                                         function(i) lambda_gamma_glmnet[i])
+      
+      # get coefficients for each of the nlambda.gamma tuning parameters
+      # then repeat each set of coefficients nlambda.beta times
+      # so that we have one column for every combination of lambda_gamma
+      # and lambda_beta
+      gamma_hat_next <- repcol(as.matrix(coef(fit_gamma_hat_glmnet))[-1, , drop = F], nlambda.beta)
+      rownames(gamma_hat_next) <- interaction.names
+      
+      # convert to a list
+      gamma_hat_next_list <- lapply(seq_len(ncol(gamma_hat_next)), 
+                                    function(i) gamma_hat_next[,i, drop = F])
+      
+      } else {
+      
+        # the weights are always the same for all iterations and all tuning parameters
+        # mcmapply is faster even with two cores than mapply
+        fit_gamma_hat_glmnet_list <- parallel::mcmapply(glmnet::glmnet, x = x_tilde_list, 
+                                                        y = y_tilde_list,
+                                                        penalty.factor = adaptive_weights_list,
+                                                        lambda = lambda_gamma_glmnet_list,
+                                                        MoreArgs = list(
+                                                          standardize = F, intercept = F),
+                                                        mc.cores = cores, SIMPLIFY = F)
+        
+        # get gamma coefficients and remove intercept
+        # this results in a matrix of size p*(p-1)/2 x 100 i.e. 
+        # the number of interaction variables by the number of lambda_gammas
+        # for each tuning paramter
+        gamma_hat_next_list <- lapply(fit_gamma_hat_glmnet_list, function (i) 
+          as.matrix(coef(i))[-1, , drop = F])
+
+      }
+
+      
+      #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      # update beta (main effect parameter) step 4 of algortihm in Choi et al
+      #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+      
+      beta_hat_next_list <- beta_hat_previous_list
+      
+      for (j in main.effect.names) {
+        
+        j="x5"
+        # determine the main effects not in j
+        j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
+        
+
+        y_tilde_2_list_temp <- lapply(beta_hat_next_list, function(i) y - 
+                                   x[,j_prime_not_in_j, drop = F] %*% i[j_prime_not_in_j, , drop = F]) 
+        
+        # mclapply is faster than lapply even with just two cores
+        term_2_temp_list <- parallel::mclapply(seq_len(length(beta_hat_next_list)), function(i) 
+                           as.matrix(rowSums(xtilde_mod(beta.main.effects = beta_hat_next_list[[i]][j_prime_not_in_j, , drop = F],
+                           gamma.interaction.effects = gamma_hat_next_list[[i]],
+                           interaction.names = interaction.names[-grep(j, interaction.names)], 
+                           data.main.effects = x[,j_prime_not_in_j, drop = F])), ncol = 1), 
+                           mc.cores = cores)
+        
+        y_tilde_2_list <- mapply("-", y_tilde_2_list_temp, term_2_temp_list, SIMPLIFY = F)
+        
+        # index data.frame to figure out which j < j'
+        index <- data.frame(main.effect.names, seq_along(main.effect.names), 
+                            stringsAsFactors = F) 
+        colnames(index) <- c("main.effect.names","index")
+        
+        # j' less than j
+        j.prime.less <- index[which(index[,"index"] < index[which(index$main.effect.names == j),2]),
+                              "main.effect.names"]
+        
+        # the if conditions in term1 and term2 are to check if there are 
+        # any variables greater or less than j            
+        # lapply is faster than mclapply here
+        term_1_list <- if (length(j.prime.less) != 0) { 
+          lapply(seq_len(length(beta_hat_next_list)), function(i) 
+          x[,paste(j.prime.less,j,sep = ":")] %*% 
+            (gamma_hat_next_list[[i]][paste(j.prime.less,j,sep = ":"),, drop = F] * 
+               beta_hat_next_list[[i]][j.prime.less, , drop = F]))} else 0
+        
+        # j' greater than j
+        j.prime.greater <- index[which(index[,"index"] > index[which(index$main.effect.names == j),2]),
+                                 "main.effect.names"]
+        
+        term_2_list <- if (length(j.prime.greater) != 0) {
+          lapply(seq_len(length(beta_hat_next_list)), function(i) 
+          x[,paste(j,j.prime.greater,sep = ":")] %*% 
+            (gamma_hat_next_list[[i]][paste(j, j.prime.greater,sep = ":"),, drop = F] * 
+               beta_hat_next_list[[i]][j.prime.greater,,drop = F])) } else 0
+        
+        # lapply is faster than mclapply
+        x_tilde_2_list <- lapply(seq_len(length(term_1_list)), 
+                                 function(i) x[,j, drop = F] + 
+                                    term_1_list[[i]] + term_2_list[[i]])
+        
+        # need to add a column of zeros to the design matrix, because
+        # glmnet returns an error if the design matrix only has one 
+        # column. also need to give this column a weight of 0
+        
+        x_tilde_2_list_with0 <- lapply(x_tilde_2_list, function(i) cbind2(i, rep(0, nrow(i))))
+
+        if (m == 1){
+        
+          # at this step the x_tilde_2_list will have different entries because 
+          # the gammas are used in that step, and the gammas are different for 
+          # each of the nlambda.gamma tuning parameters
+        fit_beta_hat_next <- parallel::mcmapply(glmnet::glmnet, 
+                                                     x = x_tilde_2_list_with0, 
+                                                     y = y_tilde_2_list,
+                                    MoreArgs = list(
+                                      nlambda = nlambda.beta, intercept = F,
+                                      lambda = NULL,
+                                      standardize = F,
+                                      penalty.factor = c(adaptive.weights[j,],0)))
+        
+        fit_beta_hat_next_list <- lapply(fit_beta_hat_next, function(i) 
+                                    as.matrix(coef(i)))
+        
+        } else {
+          
+          
+          
+          
+        }
+        
+        
+      }
+      
+    }
+    
+    Q[m+1,2] <- Q_theta(x = x, y = y, beta = beta_hat_next, 
+                        gamma = gamma_hat_next, weights = adaptive.weights, 
+                        lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                        main.effect.names = main.effect.names, 
+                        interaction.names = interaction.names)
+    
+    betas[,m+1] <- beta_hat_next
+    gammas[,m+1] <- gamma_hat_next
+    
+    delta <- abs(Q[m,2] - Q[m+1,2])/abs(Q[m,2])
+    
+    print(paste("Iteration:",m, ", Q(theta):",Q[m+1,2]))
+    
+    m = m+1
+    
+    beta_hat_previous <- beta_hat_next
+    
+  }
+  
+  return(list(beta = betas, gamma = gammas, Q = Q, m = m))
+  
+}
+
 
 #' Fit the Strong Heredity Interactions Model with Fixed Betas
 #' 
-#' @description This is a test function to see if the algorithm is converging
-#' if it only needs to estimate one set of parameters. In this function we are
-#' fixing the betas at the true betas, and trying to estimate the gammas.
+#' @description This is a test function to see if the algorithm is converging if
+#'   it only needs to estimate one set of parameters. In this function we are 
+#'   fixing the betas at the true betas, and trying to estimate the gammas.
 #' @param fixed.beta p x 1 matrix of betas, with rows labelled accordingly
 #' @note refer to \code{shim} function for argument definitions and return value
 
@@ -611,10 +1146,11 @@ shim_fix_betas <- function(x, y, main.effect.names, interaction.names,
 
 #' Fit the Strong Heredity Interactions Model with Fixed Gammas
 #' 
-#' @description This is a test function to see if the algorithm is converging
-#' if it only needs to estimate one set of parameters. In this function we are
-#' fixing the gammas at the true gammas, and trying to estimate the betas.
-#' @param fixed.gamma p(p-1)/2 x 1 matrix of betas, with rows labelled accordingly
+#' @description This is a test function to see if the algorithm is converging if
+#'   it only needs to estimate one set of parameters. In this function we are 
+#'   fixing the gammas at the true gammas, and trying to estimate the betas.
+#' @param fixed.gamma p(p-1)/2 x 1 matrix of betas, with rows labelled
+#'   accordingly
 #' @note refer to \code{shim} function for argument definitions and return value
 shim_fix_gamma <- function(x, y, main.effect.names, interaction.names, 
                  lambda.beta, lambda.gamma, threshold, max.iter, 
@@ -762,32 +1298,7 @@ shim_fix_gamma <- function(x, y, main.effect.names, interaction.names,
 }
 
 
-#' Calculate working X's. We have established that there was a typo in the 
-#' paper. This function is not being used.
-#' the algorithm in the paper is missing a gamma in the calculation
-#' of the working residuals
-xtilde <- function(interaction.names, data.main.effects, beta.main.effects){
-  
-  # create output matrix
-  xtildas <- matrix(ncol = length(interaction.names), 
-                    nrow = nrow(data.main.effects)) %>% 
-    magrittr::set_colnames(interaction.names)  
-  
-  for (k in interaction.names) {
-    
-    # get names of main effects corresponding to interaction
-    main <- k %>% 
-      stringr::str_split(":") %>% 
-      unlist
-    
-    # step 3 to calculate x tilda
-    xtildas[,k] <- prod(beta.main.effects[main,]) * 
-      data.main.effects[,main[1],drop = F] * 
-      data.main.effects[,main[2],drop = F]
-  }
-  
-  return(xtildas)
-}
+
 
 
 
@@ -795,20 +1306,20 @@ xtilde <- function(interaction.names, data.main.effects, beta.main.effects){
 
 #' Update Weights based on betas and gammas. Currently not being used.
 #' 
-#' @description uses betas and gammas to update weights. this is used to update
-#' the weights at each iteration of the fitting algorithm in the \code{shim}
-#' function
-#' @param betas.and.gammas q x 1 data.frame or matrix of betas and 
-#' gamma estimates. The rownames must be appropriately labelled because 
-#' these labels are be used in this function and must match those in the arguments
-#' \code{main.effect.names} and \code{interaction.names}
+#' @description uses betas and gammas to update weights. this is used to update 
+#'   the weights at each iteration of the fitting algorithm in the \code{shim} 
+#'   function
+#' @param betas.and.gammas q x 1 data.frame or matrix of betas and gamma
+#'   estimates. The rownames must be appropriately labelled because these labels
+#'   are be used in this function and must match those in the arguments 
+#'   \code{main.effect.names} and \code{interaction.names}
 #' @param main.effect.names character vector of main effects names
 #' @param interaction.names character vector of interaction names. must be 
-#' separated by a ':' (e.g. x1:x2)
+#'   separated by a ':' (e.g. x1:x2)
 #' @param include.intercept logical if intercept should be fitted. default is 
-#' FALSE. Should be set to TRUE if y is not centered
-#' @note Currently this is not being used in the shim function i.e. we are not
-#' updating the weights at each iteration
+#'   FALSE. Should be set to TRUE if y is not centered
+#' @note Currently this is not being used in the shim function i.e. we are not 
+#'   updating the weights at each iteration
 #' @return q x 1 matrix of weights
 
 update_weights <- function(betas.and.gammas, 

@@ -707,8 +707,8 @@ mysd <- function(i) sqrt(crossprod(i - mean(i))/length(i))
 
 #' Calculate Sequence of Tuning Parameters
 #' 
-#' @description function to calculate the sequence of tuning parameters. This
-#'   formula is taken from section 2.5 of the glmnet paper in Journal of Stat.
+#' @description function to calculate the sequence of tuning parameters. This 
+#'   formula is taken from section 2.5 of the glmnet paper in Journal of Stat. 
 #'   Software
 #'   
 #' @param x matrix with rows as subjects and columns as variables
@@ -723,22 +723,51 @@ mysd <- function(i) sqrt(crossprod(i - mean(i))/length(i))
 #' @param nlambda the number of lambda values - default is 100.
 #' @param scale_x should the columns of x be scaled - default is FALSE
 #' @param center_y should y be mean centered - default is FALSE
+#' @note The maximum lambda is calculated using the following inequality: 
+#'   \deqn{\frac{1}{N*w_j}\abs{\sum_{i=1}^{n} x_{ij}y_i  } \leq \lambda_{max}}
+#' @note The minimum lambda is given by lambda.factor*lambda_max. The sequence
+#'   of nlambda values are decreasing from lambda_max to lambda_min on the log
+#'   scale
+#' @note the penalty factors are internally rescaled to sum to the number of 
+#'   predictor variables in glmnet. Therefore, to get the correct sequence of 
+#'   lambdas when there are weights, this function first rescales the weights 
+#'   and then calclated the sequence of lambdas
+#' @example \dontrun{ lambda_sequence(X,Y, weights = adaptive.weights)}
 
-lambda_sequence <- function(x, y, 
+lambda_sequence <- function(x, y, weights = NULL,
                        lambda.factor = ifelse(nobs < nvars, 0.01, 1e-04),
                        nlambda = 100, scale_x = F, center_y = F) {
   
+#   x = X; y = Y ; weights = adaptive.weights
+#   lambda.factor =  1e-04
+#   nlambda = 100; scale_x = F; center_y = F
+#   this shows that the lambdas are different is we are using weights!!
+#   glmnet(x,y,standardize = F, intercept = F)$lambda
+#   glmnet(x,y,standardize = F, intercept = F, penalty.factor = adaptive.weights)$lambda
+  
+    
   # when scaling, first you center then you standardize
+  if (any(as.vector(weights) < 0)) stop("Weights must be positive")
   np <- dim(x)
   nobs <- as.integer(np[1])
   nvars <- as.integer(np[2])
   
+  if (length(as.vector(weights)) < nvars ) stop("You must provide weights for 
+                                                every column of x")
+  
+  w <- if (is.null(weights)) rep(1, nvars) else as.vector(weights)/sum(as.vector(weights))*nvars
   sx <- if (scale_x) apply(x,2, function(i) scale(i, center = TRUE, scale = mysd(i))) else x
   sy <- if (center_y) as.vector(scale(y, center = T, scale = F)) else as.vector(y)
-  lambda.max <- max(abs(colSums( sy * sx))/nrow(sx))
+  lambda.max <- max(abs(colSums(sy * sx)/w))/nrow(sx)
   
   rev(exp(seq(log(lambda.factor*lambda.max), log(lambda.max), length.out = nlambda)))
 }
+
+
+
+
+
+
 
 #' Fit Strong Heredity Model for Multiple Lambdas
 #' @param nlambda.gamma number of tuning parameters for gamma
@@ -781,7 +810,7 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
   
   # need to create a matrix here instead of a 1 column vector  
   # dim1: # of variables, 
-  # dim2: # of lambdas (we will fix at 100 which is the glmnet default)
+  # dim2: # of lambdas 
 
   beta_hat_previous <- replicate(nlambda, uni_start[main.effect.names, , drop = F], simplify = "matrix")
   rownames(beta_hat_previous) <- main_effect_names
@@ -789,7 +818,8 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
   gamma_hat_previous <- replicate(nlambda, uni_start[interaction.names, , drop = F], simplify = "matrix")
   rownames(gamma_hat_previous) <- interaction_names
   
-  # convert gamma and beta previous to lists
+  # convert gamma and beta previous to lists each element corresponds to the
+  # coefficients for each combination of lambda_gamma and lambda_beta
   beta_hat_previous_list <- lapply(seq_len(ncol(beta_hat_previous)), function(i) beta_hat_previous[,i, drop = F])
   gamma_hat_previous_list <- lapply(seq_len(ncol(gamma_hat_previous)), function(i) gamma_hat_previous[,i, drop = F])
   
@@ -802,15 +832,15 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
   # lambda_gammas and lambda_betas
   # rows: iteration number
   # columns: tuning parameter
-  Q <- matrix(nrow = max.iter + 1, ncol = nlambda)
+  Q <- matrix(nrow = max.iter+1, ncol = nlambda)
 
   # 3d array to store betas and gammas of every iteration for each pair of tuning 
   # parameters
   # dim1: # of variables, 
   # dim2: # of iterations
   # dim3: # of lambdas 
-  betas <- replicate(nlambda, matrix(nrow = length(main.effect.names), ncol = max.iter + 1))
-  gammas <- replicate(nlambda, matrix(nrow = length(interaction.names), ncol = max.iter + 1))
+  betas <- replicate(nlambda, matrix(nrow = length(main.effect.names), ncol = max.iter+1))
+  gammas <- replicate(nlambda, matrix(nrow = length(interaction.names), ncol = max.iter+1))
   
   dim(betas);dim(gammas)
   
@@ -820,10 +850,11 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
   gammas[,1,] <- gamma_hat_previous_list[[1]]
   
   
-  # need to get sequence of lambda_betas and lambda_gammas from glmnet
-  # on first iteration. Then we will use these on subsequent iterations
+  # the sequence of lambdas are determined first for the lambda_gammas using the
+  # lambda_sequence function based on the first set of ytilde and xtilde (i.e.
+  # step 3 of the 1st iteration)
   
-  if (is.null(lambda.gamma) & is.null(lambda.beta)) {
+ #if (is.null(lambda.gamma) & is.null(lambda.beta)) {
     
 #     # store the value of the likelihood at the 0th iteration
 #     Q[1,2] <- Q_theta(x = x, y = y, beta = beta_hat_previous, 
@@ -843,7 +874,8 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
       # this is a nsubjects x lambda matrix for each tuning parameter stored in a list
       # convert y_tilde to list for use in glmnet function
       # each element of the list corresponds to a tuning parameter      
-      y_tilde_list <- lapply(beta_hat_previous_list, function(i) y - x[,main.effect.names,drop = F] %*% i)
+      y_tilde_list <- lapply(beta_hat_previous_list, 
+                             function(i) y - x[,main.effect.names,drop = F] %*% i)
 
 #       x_tilde <- xtilde(interaction.names = interaction.names, 
 #                         data.main.effects = x[,main.effect.names],
@@ -867,34 +899,38 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
       # on the first iteration we only need to pass the first element of y_tilde
       # and x_tilde because they are all the same 
       
-      if (m == 1) {
+      lambda_gamma_glmnet <- lambda_sequence(x = x_tilde_list[[1]], 
+                      y = y_tilde_list[[1]],
+                      weights = adaptive_weights_list[[1]],
+                      nlambda = nlambda.gamma,
+                      scale_x = F, center_y = F)
       
-      fit_gamma_hat_glmnet <- glmnet::glmnet(x = x_tilde_list[[1]], 
-                                             y = y_tilde_list[[1]], 
-                                             lambda = NULL,
-                                             nlambda = nlambda.gamma,
-                                             penalty.factor = adaptive.weights[colnames(x_tilde_list[[1]]),],
-                                             standardize = F, intercept = F)
+#       fit_gamma_hat_glmnet <- glmnet::glmnet(x = x_tilde_list[[1]], 
+#                                              y = y_tilde_list[[1]], 
+#                                              lambda = NULL,
+#                                              nlambda = nlambda.gamma,
+#                                              penalty.factor = adaptive.weights[colnames(x_tilde_list[[1]]),],
+#                                              standardize = F, intercept = F)
       # record sequence of lambda_gammas. this will be used in subsequent iterations
       # the lambdas generated by glmnet go from large to small
-      lambda_gamma_glmnet <- fit_gamma_hat_glmnet$lambda
+      #lambda_gamma_glmnet <- fit_gamma_hat_glmnet$lambda
       
       # convert to a list
       lambda_gamma_glmnet_list <- lapply(seq_len(length(lambda_gamma_glmnet)), 
                                          function(i) lambda_gamma_glmnet[i])
       
-      # get coefficients for each of the nlambda.gamma tuning parameters
-      # then repeat each set of coefficients nlambda.beta times
-      # so that we have one column for every combination of lambda_gamma
-      # and lambda_beta
-      gamma_hat_next <- repcol(as.matrix(coef(fit_gamma_hat_glmnet))[-1, , drop = F], nlambda.beta)
-      rownames(gamma_hat_next) <- interaction.names
-      
-      # convert to a list
-      gamma_hat_next_list <- lapply(seq_len(ncol(gamma_hat_next)), 
-                                    function(i) gamma_hat_next[,i, drop = F])
-      
-      } else {
+#       # get coefficients for each of the nlambda.gamma tuning parameters
+#       # then repeat each set of coefficients nlambda.beta times
+#       # so that we have one column for every combination of lambda_gamma
+#       # and lambda_beta
+#       gamma_hat_next <- repcol(as.matrix(coef(fit_gamma_hat_glmnet))[-1, , drop = F], nlambda.beta)
+#       rownames(gamma_hat_next) <- interaction.names
+#       
+#       # convert to a list
+#       gamma_hat_next_list <- lapply(seq_len(ncol(gamma_hat_next)), 
+#                                     function(i) gamma_hat_next[,i, drop = F])
+#       
+#       } else {
       
         # the weights are always the same for all iterations and all tuning parameters
         # mcmapply is faster even with two cores than mapply
@@ -1027,7 +1063,7 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
     
     beta_hat_previous <- beta_hat_next
     
-  }
+  
   
   return(list(beta = betas, gamma = gammas, Q = Q, m = m))
   

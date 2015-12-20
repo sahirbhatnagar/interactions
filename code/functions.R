@@ -520,175 +520,6 @@ shim <- function(x, y, main.effect.names, interaction.names,
     
 }
 
-#' Fit Strong Heredity model with one iteration just to get the 
-#' sequence of lambda_gamma and lambda_beta 
-shim_once <- function(x, y, main.effect.names, interaction.names, 
-                 lambda.beta, lambda.gamma, threshold, max.iter, 
-                 initialization.type = "ridge") {
-  
-  adaptive.weights <- ridge_weights(x = x, y = y, 
-                                    main.effect.names = main.effect.names, 
-                                    interaction.names = interaction.names)
-  
-  # initialization
-  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, 
-                              include.intercept = F,
-                              type = initialization.type)
-  
-  # this converts the alphas to gammas
-  uni_start <- betas_and_alphas %>% 
-    convert(., main.effect.names = main.effect.names, 
-            interaction.names = interaction.names)
-  
-  # initialize beta_hat_next also because we are updating each beta individually
-  #beta_hat_previous <- beta_hat_next <- uni_start[main.effect.names, , drop = F]
-  
-  beta_hat_previous <- uni_start[main.effect.names, , drop = F]
-  gamma_hat_previous <- uni_start[interaction.names, , drop = F]
-  
-  m = 1 # iteration counter
-  delta = 1 # threshold initialization
-  
-  # store likelihood values at each iteration in a matrix Q
-  Q <- matrix(c(seq(0,max.iter), rep(NA,max.iter+1)), nrow = max.iter+1, ncol = 2) %>% 
-    magrittr::set_colnames(c("iteration", "Q.theta"))
-  
-  # matrix to store betas and gammas of every iteration
-  betas <- matrix(nrow = length(main.effect.names), ncol = max.iter + 1)
-  gammas <- matrix(nrow = length(interaction.names), ncol = max.iter + 1)
-  
-  betas[,1] <- beta_hat_previous
-  gammas[,1] <- gamma_hat_previous
-  
-  # store the value of the likelihood at the 0th iteration
-  Q[1,2] <- Q_theta(x = x, y = y, beta = beta_hat_previous, 
-                    gamma = gamma_hat_previous, weights = adaptive.weights, 
-                    lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
-                    main.effect.names = main.effect.names, 
-                    interaction.names = interaction.names)
-  
-  print(paste("Iteration: 0, Q(theta):",Q[1,2]))
-  
-  while (threshold < delta && m < max.iter){
-    
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    # update gamma (interaction parameter)
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    y_tilde <- y - x[,main.effect.names] %*% beta_hat_previous
-    
-    
-    x_tilde <- xtilde(interaction.names = interaction.names, 
-                      data.main.effects = x[,main.effect.names],
-                      beta.main.effects = beta_hat_previous)
-    
-    # update the gammas using glmnet
-    # x_tilde only has the interaction columns, therefore, penalty.factor 
-    # must also only include the weights for the interaction terms
-    fit_gamma_hat_glmnet <- glmnet::glmnet(x = x_tilde, 
-                                           y = y_tilde, 
-                                           nlambda = 1, 
-                                           lambda = lambda.gamma, 
-                                           penalty.factor = adaptive.weights[colnames(x_tilde),],
-                                           standardize = F, intercept = F)
-    
-    # get gamma coefficients and remove intercept
-    gamma_hat_next <- coef(fit_gamma_hat_glmnet, s = lambda.gamma) %>% 
-      as.matrix %>% 
-      magrittr::extract(-1, ,drop=F)
-    
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    # update beta (main effect parameter) step 4 of algortihm in Choi et al
-    #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    
-    beta_hat_next <- beta_hat_previous
-    
-    for (j in main.effect.names) {
-      
-      # determine the main effects not in j
-      j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
-      
-      #             y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
-      #                 (xtilde(interaction.names = interaction.names[-grep(j, interaction.names)],
-      #                         data.main.effects = x[,j_prime_not_in_j],
-      #                         beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F]) %>% 
-      #                      rowSums() %>% as.matrix(ncol = 1))
-      
-      y_tilde_2 <- y - x[,j_prime_not_in_j] %*% beta_hat_next[j_prime_not_in_j,] - 
-        (xtilde_mod(interaction.names = interaction.names[-grep(j, interaction.names)],
-                    data.main.effects = x[,j_prime_not_in_j],
-                    beta.main.effects = beta_hat_next[j_prime_not_in_j,,drop=F],
-                    gamma.interaction.effects = gamma_hat_next) %>% 
-           rowSums() %>% as.matrix(ncol = 1))
-      
-      # index data.frame to figure out which j < j'
-      index <- data.frame(main.effect.names, seq_along(main.effect.names), 
-                          stringsAsFactors = F) %>% 
-        magrittr::set_colnames(c("main.effect.names","index"))
-      
-      # j' less than j
-      j.prime.less <- index[which(index[,"index"] < index[which(index$main.effect.names == j),2]),
-                            "main.effect.names"]
-      
-      # the if conditions in term1 and term2 are to check if there are 
-      # any variables greater or less than j            
-      term_1 <- if (length(j.prime.less) != 0) { 
-        x[,paste(j.prime.less,j,sep = ":")] %*% 
-          (gamma_hat_next[paste(j.prime.less,j,sep = ":"),, drop = F] * 
-             beta_hat_next[j.prime.less,,drop = F])
-      } else 0
-      
-      # j' greater than j
-      j.prime.greater <- index[which(index[,"index"] > index[which(index$main.effect.names == j),2]),
-                               "main.effect.names"]
-      
-      term_2 <- if (length(j.prime.greater) != 0) { 
-        x[,paste(j,j.prime.greater,sep = ":")] %*% 
-          (gamma_hat_next[paste(j, j.prime.greater,sep = ":"),, drop = F] * 
-             beta_hat_next[j.prime.greater,,drop = F]) 
-      } else 0
-      
-      x_tilde_2 <- x[,j, drop = F] + term_1 + term_2
-      
-      # need to add a column of zeros to the design matrix, because
-      # glmnet returns an error if the design matrix only has one 
-      # column. also need to give this column a weight of 0 
-      beta_hat_next[j,] <- glmnet(x = cbind2(x_tilde_2, rep(0,nrow(x_tilde_2))), 
-                                  y = y_tilde_2, 
-                                  nlambda = 1, intercept = F,
-                                  lambda = lambda.beta,
-                                  standardize = F,
-                                  penalty.factor = c(adaptive.weights[colnames(x_tilde_2),],0)) %>%  
-        coef(., s = lambda.beta) %>% 
-        as.matrix %>% 
-        magrittr::extract(colnames(x_tilde_2), ,drop=F)
-      
-      
-      
-    }
-    
-    Q[m+1,2] <- Q_theta(x = x, y = y, beta = beta_hat_next, 
-                        gamma = gamma_hat_next, weights = adaptive.weights, 
-                        lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
-                        main.effect.names = main.effect.names, 
-                        interaction.names = interaction.names)
-    
-    betas[,m+1] <- beta_hat_next
-    gammas[,m+1] <- gamma_hat_next
-    
-    delta <- abs(Q[m,2] - Q[m+1,2])/abs(Q[m,2])
-    
-    print(paste("Iteration:",m, ", Q(theta):",Q[m+1,2]))
-    
-    m = m+1
-    
-    beta_hat_previous <- beta_hat_next
-    
-  }
-  
-  return(list(beta = betas, gamma = gammas, Q = Q, m = m))
-  
-}
-
 #' Repeat each column of a matrix, n times
 repcol <- function(x, n) {
   s = NCOL(x)
@@ -755,7 +586,9 @@ lambda_sequence <- function(x, y, weights = NULL,
   if (length(as.vector(weights)) < nvars ) stop("You must provide weights for 
                                                 every column of x")
   
+  # scale the weights to sum to nvars
   w <- if (is.null(weights)) rep(1, nvars) else as.vector(weights)/sum(as.vector(weights))*nvars
+  
   sx <- if (scale_x) apply(x,2, function(i) scale(i, center = TRUE, scale = mysd(i))) else x
   sy <- if (center_y) as.vector(scale(y, center = T, scale = F)) else as.vector(y)
   lambda.max <- max(abs(colSums(sy * sx)/w))/nrow(sx)
@@ -766,8 +599,178 @@ lambda_sequence <- function(x, y, weights = NULL,
 
 
 
+#' Fit Strong Heredity model with one iteration just to get the 
+#' sequence of lambda_gamma and lambda_beta 
+shim_once <- function(x, y, main.effect.names, interaction.names, 
+                      initialization.type = "ridge", 
+                      nlambda.gamma = 20, 
+                      nlambda.beta = 20) {
+  
+#   x = X; y = Y; main.effect.names = main_effect_names;
+#   interaction.names = interaction_names;
+#   lambda.beta = NULL ; lambda.gamma = NULL
+#   threshold = 1e-5 ; max.iter = 500 ; initialization.type = "ridge";
+#   nlambda.gamma = 10; nlambda.beta = 20; cores = 2
+  
+  # total number of tuning parameters
+  nlambda = nlambda.gamma * nlambda.beta
+  
+  adaptive.weights <- ridge_weights(x = x, y = y, 
+                                    main.effect.names = main.effect.names, 
+                                    interaction.names = interaction.names)
+  
+  # initialization
+  betas_and_alphas <- uni_fun(variables = colnames(x), x = x, y = y, 
+                              include.intercept = F,
+                              type = initialization.type)
+  
+  # this converts the alphas to gammas
+  uni_start <- convert(betas_and_alphas, main.effect.names = main.effect.names, 
+                       interaction.names = interaction.names)
+  
+  beta_hat_previous <- uni_start[main.effect.names, , drop = F]
+  gamma_hat_previous <- uni_start[interaction.names, , drop = F]
+
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  # get tuning parameters for gamma
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+  # this is a nsubjects x lambda matrix for each tuning parameter stored in a list
+  # each element of the list corresponds to a tuning parameter      
+  y_tilde <- y - x[,main.effect.names,drop = F] %*% beta_hat_previous
+
+  # calculate x_tilde for each beta vector corresponding to a diffent tuning parameter
+  x_tilde <- xtilde(interaction.names = interaction.names, 
+                    data.main.effects = x[,main.effect.names, drop = F],
+                    beta.main.effects = beta_hat_previous) 
+  
+  # get the sequence of lambda_gammas using the first iteration of
+  # x_tilde and y_tilde
+  # x_tilde only has the interaction columns, therefore, penalty.factor 
+  # must also only include the weights for the interaction terms
+    
+  lambda_gamma <- lambda_sequence(x = x_tilde, 
+                                  y = y_tilde,
+                                  weights = adaptive.weights[colnames(x_tilde), ],
+                                  nlambda = nlambda.gamma,
+                                  scale_x = F, center_y = F)
+  
+  # check that this lambda sequence matches that of glmnet
+  fit_gamma_hat_glmnet <- glmnet::glmnet(x = x_tilde, 
+                                         y = y_tilde, 
+                                         lambda = NULL,
+                                         nlambda = nlambda.gamma,
+                                         penalty.factor = adaptive.weights[colnames(x_tilde), ],
+                                         standardize = F, intercept = F)
+#   # record sequence of lambda_gammas. this will be used in subsequent iterations
+#   # the lambdas generated by glmnet go from large to small
+#   plot(lambda_gamma, type = "l")  
+  lambda_gamma_glmnet <- fit_gamma_hat_glmnet$lambda
+  
+  # get gamma coefficients and remove intercept
+  # this results in a matrix of size p*(p-1)/2 x nlambda_gamma i.e. 
+  # the number of interaction variables by the number of lambda_gammas
+  gamma_hat_next <- as.matrix(coef(fit_gamma_hat_glmnet))[-1, , drop = F]
+  
+  
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  # get tuning parameters for beta
+  #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+  
+  beta_hat_next <- beta_hat_previous
+  
+  # for the lambda_beta sequence, calculate the sequences for each 
+  # beta, and then take the sequence that contains the maximum 
+  # this will ensure that all betas will be 0 under the maximum lambda
+  
+  # this is to store the lambda_beta sequences for each main.effect.names
+  # then we will determine the maximum and minimum lambda_beta across
+  # all main effects, for each of the nlambda.beta*nlambda.gamma combinations
+  lambda_beta_temp <- vector("list", length(main.effect.names))
+  names(lambda_beta_temp) <- main.effect.names
+
+  
+  # for each main effect, and for each nlambda_gamma,
+  # we get a sequence of nlambda_beta tuning parameters
+  # only store the max and min for each main effect for each lambda_gamma
+  lambda_beta_seq_for_every_lambda_gamma <- replicate(nlambda.gamma,
+                                                      matrix(nrow = 2, 
+                                                             ncol = length(main.effect.names),
+                                                             dimnames = list(paste0("lambda_",c("min","max")),
+                                                                             main.effect.names)), 
+                                                      simplify = "array")
+  
+  for (k in seq_len(ncol(gamma_hat_next))) {
+
+    for (j in main.effect.names) {
+      
+      # k=1
+      # j = "x10"
+      #print(paste(j))
+      # determine the main effects not in j
+      j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
+      
+      y_tilde_2 <- y - 
+        x[,j_prime_not_in_j, drop = F] %*% beta_hat_next[j_prime_not_in_j, , drop = F] - 
+        as.matrix(rowSums(xtilde_mod(beta.main.effects = beta_hat_next[j_prime_not_in_j, , drop = F],
+                                     gamma.interaction.effects = gamma_hat_next[,k,drop = F],
+                                     interaction.names = interaction.names[-grep(j, interaction.names)], 
+                                     data.main.effects = x[,j_prime_not_in_j, drop = F])), ncol = 1)
+      
+      # index data.frame to figure out which j < j'
+      index <- data.frame(main.effect.names, seq_along(main.effect.names), 
+                          stringsAsFactors = F) 
+      colnames(index) <- c("main.effect.names","index")
+      
+      # j' less than j
+      j.prime.less <- index[which(index[,"index"] < index[which(index$main.effect.names == j),2]),
+                            "main.effect.names"]
+      
+      # the if conditions in term1 and term2 are to check if there are 
+      # any variables greater or less than j            
+      # lapply is faster than mclapply here
+      term_1 <- if (length(j.prime.less) != 0) { 
+        x[,paste(j.prime.less,j,sep = ":")] %*% 
+          (gamma_hat_next[paste(j.prime.less,j,sep = ":"),k, drop = F] * 
+             beta_hat_next[j.prime.less,,drop = F])} else matrix(rep(0,nrow(x)), ncol = 1)
+      
+      # j' greater than j
+      j.prime.greater <- index[which(index[,"index"] > index[which(index$main.effect.names == j),2]),
+                               "main.effect.names"]
+      
+      term_2 <- if (length(j.prime.greater) != 0) { 
+        x[,paste(j,j.prime.greater,sep = ":")] %*% 
+          (gamma_hat_next[paste(j, j.prime.greater,sep = ":"),k, drop = F] * 
+             beta_hat_next[j.prime.greater,,drop = F]) 
+      } else matrix(rep(0,nrow(x)), ncol = 1)
+      
+      x_tilde_2 <- x[,j, drop = F] + term_1 + term_2
+
+      lambda_beta_seq <- lambda_sequence(x_tilde_2,
+                      y_tilde_2, 
+                      weights = adaptive.weights[colnames(x_tilde_2),],
+                      nlambda = nlambda.beta)
+      
+      # the seqeunce of lambda_betas for variable j 
+      lambda_beta_seq_for_every_lambda_gamma[ , j ,k] <- c(min(lambda_beta_seq), max(lambda_beta_seq))
+      }
+  }
+  
+  return(list(lambda_gamma = lambda_gamma_glmnet, 
+              lambda_beta = lapply(seq_len(nlambda.gamma), function(i) 
+                rev(exp(seq(log(min(lambda_beta_seq_for_every_lambda_gamma[ , ,i])), 
+                            log(max(lambda_beta_seq_for_every_lambda_gamma[ , ,i])), 
+                            length.out = nlambda.beta))))))
+}
 
 
+tuning_params <- shim_once(x = X, y = Y, 
+          main.effect.names = main_effect_names,
+          interaction.names = interaction_names,
+          initialization.type = "ridge",
+          nlambda.gamma = 10, nlambda.beta = 20)
+
+tuning_params$lambda_beta
 
 #' Fit Strong Heredity Model for Multiple Lambdas
 #' @param nlambda.gamma number of tuning parameters for gamma
@@ -846,7 +849,6 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
   
   # store the initial values which are the same for each pair of tuning parameters
   betas[,1,] <- beta_hat_previous_list[[1]]
-  
   gammas[,1,] <- gamma_hat_previous_list[[1]]
   
   
@@ -872,7 +874,6 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
       #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       
       # this is a nsubjects x lambda matrix for each tuning parameter stored in a list
-      # convert y_tilde to list for use in glmnet function
       # each element of the list corresponds to a tuning parameter      
       y_tilde_list <- lapply(beta_hat_previous_list, 
                              function(i) y - x[,main.effect.names,drop = F] %*% i)
@@ -887,13 +888,18 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
                                                 data.main.effects = x[,main.effect.names, drop = F],
                                                 beta.main.effects = i)) 
       
+      # in the first iteration all elements of y_tilde_list should be identical
+      # for (i in 1:199) print(identical(y_tilde_list[[i]], y_tilde_list[[i+1]]))
+      # in the first iteration all elements of x_tilde_list should be identical
+      # for (i in 1:199) print(identical(x_tilde_list[[i]], x_tilde_list[[i+1]]))
       # adaptive weight for each tuning parameter. currently this is the
       # same for all tuning parameters, but I am coding it here
       # for flexibility in case we want to change the weights at each iteration
       adaptive_weights_list <- lapply(x_tilde_list, function(i)
-                                      adaptive.weights[colnames(i),])
+                                      adaptive.weights[colnames(i),,drop=F])
       
-      # update the gammas using glmnet
+      # get the sequence of lambda_gammas using the first iteration of
+      # x_tilde and y_tilde
       # x_tilde only has the interaction columns, therefore, penalty.factor 
       # must also only include the weights for the interaction terms
       # on the first iteration we only need to pass the first element of y_tilde
@@ -915,7 +921,7 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
       # the lambdas generated by glmnet go from large to small
       #lambda_gamma_glmnet <- fit_gamma_hat_glmnet$lambda
       
-      # convert to a list
+      # convert to a list. each element corresponds to a value of lambda_gamma
       lambda_gamma_glmnet_list <- lapply(seq_len(length(lambda_gamma_glmnet)), 
                                          function(i) lambda_gamma_glmnet[i])
       
@@ -934,23 +940,32 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
       
         # the weights are always the same for all iterations and all tuning parameters
         # mcmapply is faster even with two cores than mapply
-        fit_gamma_hat_glmnet_list <- parallel::mcmapply(glmnet::glmnet, x = x_tilde_list, 
+        # this will output the gamma LASSO fit. The top level of the loop is for the 
+      # lambda_gammas, and the inner loop is for the lambda_betas
+      # e.g. if nlambda.gamma=10, and nlambda.beta = 20, the first 20 elements in this list
+      # correspond to the 1st nlambda.gamma with each of the 20 lambda.beta tuning  parameters
+      # there will be a separate sequence of lambda_beta tuning parameters for each of the 
+      # lambda_gamma tuning parameters
+      fit_gamma_hat_glmnet_list <- parallel::mcmapply(glmnet::glmnet, x = x_tilde_list, 
                                                         y = y_tilde_list,
                                                         penalty.factor = adaptive_weights_list,
-                                                        lambda = lambda_gamma_glmnet_list,
-                                                        MoreArgs = list(
-                                                          standardize = F, intercept = F),
+                                                        lambda = rep(lambda_gamma_glmnet_list, each = nlambda.beta),
+                                                        MoreArgs = list(nlambda = nlambda.gamma,
+                                                        standardize = F, intercept = F),
                                                         mc.cores = cores, SIMPLIFY = F)
         
         # get gamma coefficients and remove intercept
         # this results in a matrix of size p*(p-1)/2 x 100 i.e. 
         # the number of interaction variables by the number of lambda_gammas
         # for each tuning paramter
-        gamma_hat_next_list <- lapply(fit_gamma_hat_glmnet_list, function (i) 
+        
+        gamma_hat_next_list <- lapply(fit_gamma_hat_glmnet_list, function(i) 
           as.matrix(coef(i))[-1, , drop = F])
-
-      }
-
+        
+        # used to check if the first 20 are identical, then the next 20 are 
+        # identical, ect.
+        #for(i in 1:199) identical(gamma_hat_next_list[[i]], gamma_hat_next_list[[i+1]]) %>% print
+        
       
       #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
       # update beta (main effect parameter) step 4 of algortihm in Choi et al
@@ -958,9 +973,19 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
       
       beta_hat_next_list <- beta_hat_previous_list
       
+      # for the lambda_beta sequence, calculate the sequences for each 
+      # beta, and then take the sequence that contains the maximum 
+      # this will ensure that all betas will be 0 under the maximum lambda
+      
+      # this is to store the lambda_beta sequences for each main.effect.names
+      # then we will determine the maximum and minimum lambda_beta across
+      # all main effects, for each of the nlambda.beta*nlambda.gamma combinations
+      lambda_beta_temp <- vector("list", length(main.effect.names))
+      names(lambda_beta_temp) <- main.effect.names
       for (j in main.effect.names) {
         
-        j="x5"
+        #j = "x10"
+        #print(paste(j))
         # determine the main effects not in j
         j_prime_not_in_j <- dplyr::setdiff(main.effect.names,j)
         
@@ -976,6 +1001,7 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
                            data.main.effects = x[,j_prime_not_in_j, drop = F])), ncol = 1), 
                            mc.cores = cores)
         
+        # this is of length nlambda.beta*nlambda.gamma i.e. one set of y's for each tuning parameter
         y_tilde_2_list <- mapply("-", y_tilde_2_list_temp, term_2_temp_list, SIMPLIFY = F)
         
         # index data.frame to figure out which j < j'
@@ -994,7 +1020,8 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
           lapply(seq_len(length(beta_hat_next_list)), function(i) 
           x[,paste(j.prime.less,j,sep = ":")] %*% 
             (gamma_hat_next_list[[i]][paste(j.prime.less,j,sep = ":"),, drop = F] * 
-               beta_hat_next_list[[i]][j.prime.less, , drop = F]))} else 0
+               beta_hat_next_list[[i]][j.prime.less, , drop = F]))} else 
+                 matrix(rep(0,length(beta_hat_next_list)), ncol = 1)
         
         # j' greater than j
         j.prime.greater <- index[which(index[,"index"] > index[which(index$main.effect.names == j),2]),
@@ -1004,42 +1031,85 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
           lapply(seq_len(length(beta_hat_next_list)), function(i) 
           x[,paste(j,j.prime.greater,sep = ":")] %*% 
             (gamma_hat_next_list[[i]][paste(j, j.prime.greater,sep = ":"),, drop = F] * 
-               beta_hat_next_list[[i]][j.prime.greater,,drop = F])) } else 0
+               beta_hat_next_list[[i]][j.prime.greater,,drop = F])) } else 
+                 matrix(rep(0,length(beta_hat_next_list)), ncol = 1)
+        
+        length(term_1_list)
         
         # lapply is faster than mclapply
         x_tilde_2_list <- lapply(seq_len(length(term_1_list)), 
                                  function(i) x[,j, drop = F] + 
                                     term_1_list[[i]] + term_2_list[[i]])
         
-        # need to add a column of zeros to the design matrix, because
+        #length(x_tilde_2_list)
+        
+        #non-parallel version is faster
+        lambda_beta_temp[[j]] <- mapply(lambda_sequence, x = x_tilde_2_list, 
+               y = y_tilde_2_list,
+               weights = adaptive_weights_list,
+               MoreArgs = list(
+               nlambda = nlambda.beta,
+               scale_x = F, center_y = F), SIMPLIFY = F)
+      }
+      
+      # for each main effect, and for each nlambda_gamma,
+      # we get a sequence of nlambda_beta tuning parameters
+      lambda_beta_temp[[1]]
+      jop <- vector("list", nlambda)
+
+      for (k in seq_len(nlambda)) {
+      jop[[k]] <- lapply(lambda_beta_temp, function(i) i[k][[1]])
+      }
+      
+      jop[[200]]
+      
+      lapply(jop, function(i) c(min(unlist(i)),max(unlist(i))  ))
+      
+      max(unlist(jop[[170]]))
+      
+      
+      lambda_beta_temp[[2]][200]
+      lambda_beta_temp[[9]][200]
+      pmax(lambda_beta_temp[[1]][200][[1]],lambda_beta_temp[[2]][200][[1]], lambda_beta_temp[[3]][200][[1]])
+      
+      # need to add a column of zeros to the design matrix, because
         # glmnet returns an error if the design matrix only has one 
         # column. also need to give this column a weight of 0
         
-        x_tilde_2_list_with0 <- lapply(x_tilde_2_list, function(i) cbind2(i, rep(0, nrow(i))))
+        #x_tilde_2_list_with0 <- lapply(x_tilde_2_list, function(i) cbind2(i, rep(0, nrow(i))))
 
-        if (m == 1){
+        #if (m == 1){
         
           # at this step the x_tilde_2_list will have different entries because 
           # the gammas are used in that step, and the gammas are different for 
           # each of the nlambda.gamma tuning parameters
-        fit_beta_hat_next <- parallel::mcmapply(glmnet::glmnet, 
-                                                     x = x_tilde_2_list_with0, 
-                                                     y = y_tilde_2_list,
-                                    MoreArgs = list(
-                                      nlambda = nlambda.beta, intercept = F,
-                                      lambda = NULL,
-                                      standardize = F,
-                                      penalty.factor = c(adaptive.weights[j,],0)))
+#         fit_beta_hat_next <- parallel::mcmapply(glmnet::glmnet, 
+#                                                 x = x_tilde_2_list_with0, 
+#                                                 y = y_tilde_2_list,
+#                                                 lambda = lambda_beta_list,
+#                                     MoreArgs = list(
+#                                       nlambda = nlambda.beta, intercept = F,
+#                                       standardize = F,
+#                                       penalty.factor = c(adaptive.weights[j,],0)), SIMPLIFY = F)
+#         
+#       beta_hat_next_list <- lapply(fit_beta_hat_next, function(i) drop(as.matrix(coef(i)[j,])))
         
-        fit_beta_hat_next_list <- lapply(fit_beta_hat_next, function(i) 
-                                    as.matrix(coef(i)))
+        # glmnet is giving weired results for this... and is slower than using my
+        # soft function. use this. non-parallel version is faster
+        fit_beta_hat_next_list <- mapply(soft, x = x_tilde_2_list, 
+               y = y_tilde_2_list,
+               lambda = lambda_beta_list,
+               MoreArgs = list(
+                 weight = adaptive.weights[j,]), SIMPLIFY = F)
+
+        length(fit_beta_hat_next_list)
         
-        } else {
+        #} else {
           
           
           
           
-        }
+        #}
         
         
       }
@@ -1397,14 +1467,99 @@ soft <- function(x, y, beta, lambda, weight) {
     if (missing(x) & missing(y) & missing(beta)) stop("user must supply x AND y, or beta but not both")
     if (missing(x) & missing(y)) return(list("beta" = sign(beta) * pmax(0, abs(beta) - lambda*weight)))
     if (missing(beta)) {
-        (beta <- lm.fit(x = cbind2(rep(1, length(y)),scale(x)), y = y) %>% coef %>% magrittr::extract(2))
-        #(beta <- lm.fit(x = x[,1,drop=F], y = y) %>% coef %>% magrittr::extract(1))
+        #(beta <- lm.fit(x = cbind2(rep(1, length(y)),scale(x)), y = y) %>% coef %>% magrittr::extract(2))
+        (beta <- lm.fit(x = x[, 1, drop = F], y = y) %>% coef %>% magrittr::extract(1))
         
         #lm.fit(x = cbind2(rep(1, length(y_tilde_2)),x_tilde_2), y = y_tilde_2) %>% coef %>% magrittr::extract(2)
         b_lasso <- sign(beta)* pmax(0, abs(beta) - lambda*weight)
         #return(list("beta" = b_lasso, "df" = nonzero(b_lasso)))
-        return(b_lasso)
+        # need to return a matrix, because this is used in the step to calculate y_tilde in the 
+        # shim_multiple function
+        return(matrix(b_lasso, ncol = 1))
     }
     
+}
+
+
+#' Check Arguments Functions
+#' 
+#' @description function to check inputs of shim function
+#' @note adapted from
+#'   \link{https://github.com/selective-inference/R-software/blob/master/selectiveInference/R/funs.common.R}
+#' 
+
+checkargs.xy <- function(x, y) {
+  if (missing(x)) stop("x is missing")
+  if (is.null(x) || !is.matrix(x)) stop("x must be a matrix")
+  if (missing(y)) stop("y is missing")
+  if (is.null(y) || !is.numeric(y)) stop("y must be numeric")
+  if (ncol(x) == 0) stop("There must be at least one predictor [must have ncol(x) > 0]")
+  if (checkcols(x)) stop("x cannot have duplicate columns")
+  if (length(y) == 0) stop("There must be at least one data point [must have length(y) > 0]")
+  if (length(y)!=nrow(x)) stop("Dimensions don't match [length(y) != nrow(x)]")
+}
+
+
+
+checkargs.misc <- function(sigma=NULL, alpha=NULL, k=NULL,
+                           gridrange=NULL, gridpts=NULL, griddepth=NULL,
+                           mult=NULL, ntimes=NULL,
+                           beta=NULL, lambda=NULL, tol.beta=NULL, tol.kkt=NULL,
+                           bh.q=NULL) {
+  
+  if (!is.null(sigma) && sigma <= 0) stop("sigma must be > 0")
+  if (!is.null(lambda) && lambda < 0) stop("lambda must be >= 0")
+  if (!is.null(alpha) && (alpha <= 0 || alpha >= 1)) stop("alpha must be between 0 and 1")
+  if (!is.null(k) && length(k) != 1) stop("k must be a single number")
+  if (!is.null(k) && (k < 1 || k != floor(k))) stop("k must be an integer >= 1")
+  if (!is.null(gridrange) && (length(gridrange) != 2 || gridrange[1] > gridrange[2]))
+    stop("gridrange must be an interval of the form c(a,b) with a <= b")
+  if (!is.null(gridpts) && (gridpts < 20 || gridpts != round(gridpts)))
+    stop("gridpts must be an integer >= 20")
+  if (!is.null(griddepth) && (griddepth > 10 || griddepth != round(griddepth)))
+    stop("griddepth must be an integer <= 10")
+  if (!is.null(mult) && mult < 0) stop("mult must be >= 0")
+  if (!is.null(ntimes) && (ntimes <= 0 || ntimes != round(ntimes)))
+    stop("ntimes must be an integer > 0")
+  if (!is.null(beta) && sum(beta!=0)==0) stop("Value of lambda too large, beta is zero")
+  if (!is.null(lambda) && length(lambda) != 1) stop("lambda must be a single number")
+  if (!is.null(lambda) && lambda < 0) stop("lambda must be >=0")
+  if (!is.null(tol.beta) && tol.beta <= 0) stop("tol.beta must be > 0")
+  if (!is.null(tol.kkt) && tol.kkt <= 0) stop("tol.kkt must be > 0")
+}
+
+# Make sure that no two columms of A are the same
+# (this works with probability one).
+
+checkcols <- function(A) {
+  b = rnorm(nrow(A))
+  a = sort(t(A)%*%b)
+  if (any(diff(a)==0)) return(TRUE)
+  return(FALSE)
+}
+
+standardize <- function(x, y, intercept, normalize) {
+  x = as.matrix(x)
+  y = as.numeric(y)
+  n = nrow(x)
+  p = ncol(x)
+  
+  if (intercept) {
+    bx = colMeans(x)
+    by = mean(y)
+    x = scale(x,bx,FALSE)
+    y = y-mean(y)
+  } else {
+    bx = rep(0,p)
+    by = 0
+  }
+  if (normalize) {
+    sx = sqrt(colSums(x^2))
+    x = scale(x,FALSE,sx)
+  } else {
+    sx = rep(1,p)
+  }
+  
+  return(list(x=x,y=y,bx=bx,by=by,sx=sx))
 }
 

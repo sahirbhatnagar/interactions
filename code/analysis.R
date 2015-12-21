@@ -13,10 +13,26 @@ options(scipen=999, digits = 10)
 
 source("packages.R")
 source("data.R")
+source("https://raw.githubusercontent.com/noamross/noamtools/master/R/proftable.R")
 source("functions.R")
+"%ni%" <- Negate("%in%")
 
+system.time(res <- shim_multiple(x = X, y = Y, main.effect.names = main_effect_names,
+                     interaction.names = interaction_names,
+                     lambda.beta = NULL , lambda.gamma = NULL,
+                     threshold = 1e-5 , max.iter = 100 , initialization.type = "ridge",
+                     nlambda.gamma = 5, nlambda.beta = 5, cores = 4))
 
+betas <- matrix(unlist(res$beta), ncol = length(res$beta), byrow = TRUE)
+dim(betas)
 
+gammas <- matrix(unlist(res$gamma), ncol = length(res$gamma), byrow = TRUE)
+dim(gammas)
+
+matplot(t(betas), type="l")
+matplot(t(gammas), type="l")
+length(res$beta)
+matplot(res$Q , type="l")
 # Trying to estimate both betas and gammas --------------------------------
 
 true.betas.and.alphas <- matrix(rep(0,55),nrow = 55, ncol=1) %>% 
@@ -39,10 +55,10 @@ getOption("mc.cores", 5L)
 parallel::detectCores()
 
 res <- parallel::mcmapply(shim, lambda.beta = seq(0,10,1), lambda.gamma = seq(0,10,1), 
-                   MoreArgs = list(x = X, y = Y, main.effect.names = main_effect_names, 
-                                   interaction.names = interaction_names,
-                                   threshold = 1e-5, max.iter = 500, 
-                                   initialization.type = "ridge"), SIMPLIFY = F)
+                          MoreArgs = list(x = X, y = Y, main.effect.names = main_effect_names, 
+                                          interaction.names = interaction_names,
+                                          threshold = 1e-5, max.iter = 500, 
+                                          initialization.type = "ridge"), SIMPLIFY = F)
 
 res[[1]]$Q[complete.cases(res[[1]]$Q),]
 
@@ -64,9 +80,9 @@ cbind2(round(res$gamma[,1:res$m],2), true.betas.and.gammas[interaction_names,,dr
 
 
 res <- shim_fix_betas(x = X, y = Y, main.effect.names = main_effect_names, 
-            interaction.names = interaction_names,
-            lambda.beta = 0.5, lambda.gamma = 0.5, threshold = 1e-8, max.iter = 500,
-            fixed.beta = true.betas.and.gammas[main_effect_names,, drop = F])
+                      interaction.names = interaction_names,
+                      lambda.beta = 0.5, lambda.gamma = 0.5, threshold = 1e-8, max.iter = 500,
+                      fixed.beta = true.betas.and.gammas[main_effect_names,, drop = F])
 
 # plot of cofficients at each iteration
 matplot(res$beta[,1:res$m] %>% t, type = "l", ylab="")

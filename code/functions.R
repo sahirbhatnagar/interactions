@@ -811,20 +811,31 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
 #   lambda.beta = NULL ; lambda.gamma = NULL
 #   threshold = 1e-5 ; max.iter = 500 ; initialization.type = "ridge";
 #   nlambda.gamma = 10; nlambda.beta = 20; cores = 2
-  
-  tuning_params <- shim_once(x = x, y = y, 
-                             main.effect.names = main.effect.names,
-                             interaction.names = interaction.names,
-                             initialization.type = "ridge",
-                             nlambda.gamma = nlambda.gamma, nlambda.beta = nlambda.beta)
-  
-  # convert to a list. each element corresponds to a value of lambda_gamma
-  lambda_gamma_list <- rep(lapply(seq_len(length(tuning_params$lambda_gamma)), 
-                                  function(i) tuning_params$lambda_gamma[i]),
-                           each = nlambda.beta)
-  
-  lambda_beta_list <- lapply(seq_len(length(unlist(tuning_params$lambda_beta))), 
-                             function(i) unlist(tuning_params$lambda_beta)[i])
+  if (is.null(lambda.gamma) & is.null(lambda.beta)) {
+    
+    tuning_params <- shim_once(x = x, y = y, 
+                               main.effect.names = main.effect.names,
+                               interaction.names = interaction.names,
+                               initialization.type = "ridge",
+                               nlambda.gamma = nlambda.gamma, nlambda.beta = nlambda.beta)
+    
+    # convert to a list. each element corresponds to a value of lambda_gamma
+    lambda_gamma_list <- rep(lapply(seq_len(length(tuning_params$lambda_gamma)), 
+                                    function(i) tuning_params$lambda_gamma[i]),
+                             each = nlambda.beta)
+    
+    lambda_beta_list <- lapply(seq_len(length(unlist(tuning_params$lambda_beta))), 
+                               function(i) unlist(tuning_params$lambda_beta)[i])
+  } else {
+    # convert to a list. each element corresponds to a value of lambda_gamma
+    lambda_gamma_list <- rep(lapply(seq_len(length(lambda.gamma)), 
+                                    function(i) lambda.gamma[i]),
+                             each = nlambda.beta)
+    
+    lambda_beta_list <- lapply(seq_len(length(unlist(lambda.beta))), 
+                               function(i) unlist(lambda.beta)[i])
+    
+  }
   
   # total number of tuning parameters
   nlambda = nlambda.gamma * nlambda.beta
@@ -846,16 +857,20 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
   # dim1: # of variables, 
   # dim2: # of lambdas 
   
-  beta_hat_previous <- replicate(nlambda, uni_start[main.effect.names, , drop = F], simplify = "matrix")
+  beta_hat_previous <- replicate(nlambda, uni_start[main.effect.names, , drop = F], 
+                                 simplify = "matrix")
   rownames(beta_hat_previous) <- main_effect_names
   
-  gamma_hat_previous <- replicate(nlambda, uni_start[interaction.names, , drop = F], simplify = "matrix")
+  gamma_hat_previous <- replicate(nlambda, uni_start[interaction.names, , drop = F], 
+                                  simplify = "matrix")
   rownames(gamma_hat_previous) <- interaction_names
   
   # convert gamma and beta previous to lists each element corresponds to the
   # coefficients for each combination of lambda_gamma and lambda_beta
-  beta_hat_previous_list <- lapply(seq_len(ncol(beta_hat_previous)), function(i) beta_hat_previous[,i, drop = F])
-  gamma_hat_previous_list <- lapply(seq_len(ncol(gamma_hat_previous)), function(i) gamma_hat_previous[,i, drop = F])
+  beta_hat_previous_list <- lapply(seq_len(ncol(beta_hat_previous)), 
+                                   function(i) beta_hat_previous[,i, drop = F])
+  gamma_hat_previous_list <- lapply(seq_len(ncol(gamma_hat_previous)), 
+                                    function(i) gamma_hat_previous[,i, drop = F])
   
   m = 1 # iteration counter
   delta = 1 # threshold initialization
@@ -867,24 +882,6 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
   # rows: iteration number
   # columns: tuning parameter
   Q <- matrix(nrow = max.iter+1, ncol = nlambda)
-  
-  # 3d array to store betas and gammas of every iteration for each pair of tuning 
-  # parameters
-  # dim1: # of variables, 
-  # dim2: # of iterations
-  # dim3: # of lambdas 
-  
-  #betas <- replicate(nlambda, matrix(nrow = length(main.effect.names), ncol = max.iter+1))
-  #gammas <- replicate(nlambda, matrix(nrow = length(interaction.names), ncol = max.iter+1))
-  
-  #dim(betas);dim(gammas)
-  
-  # store the initial values which are the same for each pair of tuning parameters
-  #betas[,1,] <- beta_hat_previous_list
-  #gammas[,1,] <- gamma_hat_previous_list[[1]]
-  
-  
-  #if (is.null(lambda.gamma) & is.null(lambda.beta)) {
   
   # store the value of the likelihood at the 0th iteration
   Q[1,] <- parallel::mcmapply(Q_theta,
@@ -898,8 +895,6 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
                                               interaction.names = interaction.names),
                               mc.cores = cores)
   
-  #     print(paste("Iteration: 0, Q(theta):",Q[1,2]))
-  
   while (threshold < delta && m < max.iter){
     
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -911,69 +906,21 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
     y_tilde_list <- lapply(beta_hat_previous_list, 
                            function(i) y - x[,main.effect.names,drop = F] %*% i)
     
-    #       x_tilde <- xtilde(interaction.names = interaction.names, 
-    #                         data.main.effects = x[,main.effect.names],
-    #                         beta.main.effects = beta_hat_previous[,1, drop = F])
-    
     # calculate x_tilde for each beta vector corresponding to a diffent tuning parameter
     x_tilde_list <- lapply(beta_hat_previous_list, 
                            function(i) xtilde(interaction.names = interaction.names, 
                                               data.main.effects = x[,main.effect.names, drop = F],
                                               beta.main.effects = i)) 
-    
-    
-    # in the first iteration all elements of y_tilde_list should be identical
-    # for (i in 1:199) print(identical(y_tilde_list[[i]], y_tilde_list[[i+1]]))
-    # in the first iteration all elements of x_tilde_list should be identical
-    # for (i in 1:199) print(identical(x_tilde_list[[i]], x_tilde_list[[i+1]]))
+
     # adaptive weight for each tuning parameter. currently this is the
     # same for iterations, but I am coding it here
     # for flexibility in case we want to change the weights at each iteration
     adaptive_weights_list <- lapply(x_tilde_list, function(i)
       adaptive.weights[colnames(i),,drop = F])
     
-    # x_tilde only has the interaction columns, therefore, penalty.factor 
-    # must also only include the weights for the interaction terms
-    # on the first iteration we only need to pass the first element of y_tilde
-    # and x_tilde because they are all the same 
-    
-    #       fit_gamma_hat_glmnet <- glmnet::glmnet(x = x_tilde_list[[1]], 
-    #                                              y = y_tilde_list[[1]], 
-    #                                              lambda = NULL,
-    #                                              nlambda = nlambda.gamma,
-    #                                              penalty.factor = adaptive.weights[colnames(x_tilde_list[[1]]),],
-    #                                              standardize = F, intercept = F)
-    # record sequence of lambda_gammas. this will be used in subsequent iterations
-    # the lambdas generated by glmnet go from large to small
-    #lambda_gamma_glmnet <- fit_gamma_hat_glmnet$lambda
-    
-    
-    
-    #       # get coefficients for each of the nlambda.gamma tuning parameters
-    #       # then repeat each set of coefficients nlambda.beta times
-    #       # so that we have one column for every combination of lambda_gamma
-    #       # and lambda_beta
-    #       gamma_hat_next <- repcol(as.matrix(coef(fit_gamma_hat_glmnet))[-1, , drop = F], nlambda.beta)
-    #       rownames(gamma_hat_next) <- interaction.names
-    #       
-    #       # convert to a list
-    #       gamma_hat_next_list <- lapply(seq_len(ncol(gamma_hat_next)), 
-    #                                     function(i) gamma_hat_next[,i, drop = F])
-    #       
-    #       } else {
-    
-    # the weights are always the same for all iterations and all tuning parameters
-    # mcmapply is faster even with two cores than mapply
-    # this will output the gamma LASSO fit. The top level of the loop is for the 
-    # lambda_gammas, and the inner loop is for the lambda_betas
-    # e.g. if nlambda.gamma=10, and nlambda.beta = 20, the first 20 elements in this list
-    # correspond to the 1st nlambda.gamma with each of the 20 lambda.beta tuning  parameters
-    # there is a separate sequence of lambda_beta tuning parameters for each of the 
-    # lambda_gamma tuning parameters
-    # need to check if any of the matrices in x_tilde_list only has 0's
-    
     # indices of the x_tilde matrices that have all 0 columns
-    zero_x_tilde <- which(sapply(x_tilde_list, function(i) is.null(colnames(check_col_0(i)))))
+    zero_x_tilde <- which(sapply(x_tilde_list, 
+                                 function(i) is.null(colnames(check_col_0(i)))))
     
     # for all the x_tilde in zero_x_tilde, return the following matrix with 0 for each coefficient
     # this is like a place holder.
@@ -992,27 +939,6 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
                                                           lambda = lambda_gamma_list[[i]],
                                                           standardize = F, intercept = F))[-1,,drop = F])},
                                                     mc.cores = cores)
-    
-
-    
-    
-    # try using updated weights so that you exclude the 0 columns in X
-    # or try using the exlude option in glmnet
-    
-    # get gamma coefficients and remove intercept
-    # this results in a matrix of size p*(p-1)/2 x 100 i.e. 
-    # the number of interaction variables by the number of lambda_gammas
-    # for each tuning paramter
-    
-#     gamma_hat_next_list <- lapply(fit_gamma_hat_glmnet_list, function(i) 
-#       as.matrix(coef(i))[-1, , drop = F])
-    
-    #gamma_hat_next_list[[200]]
-    
-    # used to check if the first 20 are identical, then the next 20 are 
-    # identical, ect.
-    #for(i in 1:199) identical(gamma_hat_next_list[[i]], gamma_hat_next_list[[i+1]]) %>% print
-    
     
     #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     # update beta (main effect parameter) step 4 of algortihm in Choi et al

@@ -55,6 +55,7 @@ system.time(res2 <- parallel::mcmapply(shim, lambda.beta = seq(0.1, 10, length.o
 
 lapply(res2, function(i) i$m)
 
+res2[[10]]
 
 
 

@@ -22,7 +22,14 @@ system.time(res <- shim_multiple(x = X, y = Y, main.effect.names = main_effect_n
                      interaction.names = interaction_names,
                      lambda.beta = NULL , lambda.gamma = NULL,
                      threshold = 1e-5 , max.iter = 100 , initialization.type = "ridge",
-                     nlambda.gamma = 5, nlambda.beta = 5, cores = 4))
+                     nlambda.gamma = 5, nlambda.beta = 10, cores = 3))
+
+# 1 core is faster than more ...
+system.time(res2 <- shim_multiple_faster(x = X, y = Y, main.effect.names = main_effect_names,
+                     interaction.names = interaction_names,
+                     lambda.beta = NULL , lambda.gamma = NULL,
+                     threshold = 1e-5 , max.iter = 100 , initialization.type = "ridge",
+                     nlambda.gamma = 5, nlambda.beta = 10, cores = 1))
 
 # user defined lambda sequence
 system.time(res <- shim_multiple(x = X, y = Y, main.effect.names = main_effect_names,
@@ -32,16 +39,16 @@ system.time(res <- shim_multiple(x = X, y = Y, main.effect.names = main_effect_n
                      threshold = 1e-5 , max.iter = 100 , initialization.type = "ridge",
                      nlambda.gamma = 5, nlambda.beta = 5, cores = 8))
 
-betas <- matrix(unlist(res$beta), ncol = length(res$beta), byrow = TRUE)
+betas <- matrix(unlist(res2$beta), ncol = length(res2$beta), byrow = TRUE)
 dim(betas)
 
-gammas <- matrix(unlist(res$gamma), ncol = length(res$gamma), byrow = TRUE)
+gammas <- matrix(unlist(res2$gamma), ncol = length(res2$gamma), byrow = TRUE)
 dim(gammas)
 
 matplot(t(betas), type="l")
 matplot(t(gammas), type="l")
 length(res$beta)
-matplot(res$Q , type="l")
+matplot(res2$Q , type="l")
 
 res2[[1]]
 

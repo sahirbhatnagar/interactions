@@ -8,3 +8,4 @@
 *.blg
 .Rproj.user
 figure*
+.Rhistory

@@ -162,6 +162,7 @@ system.time(res2 <- parallel::mcmapply(shim, lambda.beta = seq(0.1, 10, length.o
 
 lapply(res2, function(i) i$m)
 
+res2[[10]]
 
 # 1 core is faster than more ...
 lam <- lambda_sequence(X,Y, ridge_weights(X,Y, main_effect_names, interaction_names), nlambda = 5)

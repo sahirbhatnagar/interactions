@@ -20,10 +20,10 @@ set.seed(12345)
 p = 10 
 
 # number of test subjects
-n = 200 
+n = 200
 
 # correlation between X's
-rho = 0.5
+rho = 0.50
 
 # signal to noise ratio
 signal_to_noise_ratio = 4
@@ -55,18 +55,19 @@ DT <- MASS::mvrnorm(n = n, mu = rep(0,p), Sigma = cor) %>%
 # each column is standardized to mean 0 and sd 1
 X <- model.matrix(
     as.formula(paste0("~(",paste0(main_effect_names, collapse = "+"),")^2-1")), 
-    data = DT %>% as.data.frame()) %>% scale
+    data = DT %>% as.data.frame()) # %>% scale
 
+# not doing this before.. now handled by shim_multiple_faster function
 # check that means of columns are 0 and sd 1
-colMeans(X) %>%  sum
-apply(X, 2, sd) %>% sum
+#colMeans(X) %>%  sum
+#apply(X, 2, sd) %>% sum
 
 # generate response with user defined signal to noise ratio and center 
 # the response
-y.star <- X[,names(beta4)] %*% beta4
+y.star <- X[,names(beta3)] %*% beta3
 error <- rnorm(n)
 k <- sqrt(var(y.star)/(signal_to_noise_ratio*var(error))) 
-Y <- (y.star + k*error) %>% scale(center = TRUE, scale = FALSE) 
+Y <- y.star + k*error # %>% scale(center = TRUE, scale = FALSE) 
 colnames(Y) <- "Y"
 
 # record mean of response before centering

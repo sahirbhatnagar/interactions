@@ -126,31 +126,33 @@ convert <- function(betas.and.alphas, main.effect.names, interaction.names,
 #'   separated by a ':' (e.g. x1:x2)
 #' @return a labelled q x 1 data.frame of betas and alphas
 
-convert2 <- function(betas.and.gammas, main.effect.names, interaction.names) {
+convert2 <- function(beta, gamma, main.effect.names, interaction.names) {
   
-  # create output matrix
-  betas.and.alphas <- matrix(nrow = nrow(betas.and.gammas)) %>% 
-    magrittr::set_rownames(rownames(betas.and.gammas))
-  
-  for (k in interaction.names) {
+    betas.and.gammas <- rbind2(beta,gamma)
+    #rownames(betas.and.gammas) <- c(main.effect.names, interaction.names)
+    # create output matrix
+    betas.and.alphas <- matrix(nrow = nrow(betas.and.gammas)) %>% 
+        magrittr::set_rownames(rownames(betas.and.gammas))
     
-    # get names of main effects corresponding to interaction
-    main <- betas.and.gammas[k, , drop = F] %>% 
-      rownames %>% 
-      stringr::str_split(":") %>% 
-      unlist
+    for (k in interaction.names) {
+        
+        # get names of main effects corresponding to interaction
+        main <- betas.and.gammas[k, , drop = F] %>% 
+            rownames %>% 
+            stringr::str_split(":") %>% 
+            unlist
+        
+        # convert alpha to gamma
+        betas.and.alphas[k,] <- betas.and.gammas[k,]*prod(betas.and.gammas[main,]) 
+    }
     
-    # convert alpha to gamma
-    betas.and.alphas[k,] <- betas.and.gammas[k,]*prod(betas.and.gammas[main,]) 
-  }
-  
-  # add back the main effects which dont need to be transformed
-  for (j in main.effect.names) {
-    betas.and.alphas[j,] <- betas.and.gammas[j,]
-  }
-  
-  return(betas.and.alphas)
-  
+    # add back the main effects which dont need to be transformed
+    for (j in main.effect.names) {
+        betas.and.alphas[j,] <- betas.and.gammas[j,]
+    }
+    
+    return(betas.and.alphas)
+    
 }
 
 
@@ -310,15 +312,16 @@ Q_theta <- function(x, y, beta, gamma, weights,
                     lambda.beta, lambda.gamma, main.effect.names, 
                     interaction.names){
   
-  # first convert gammas to alphas which will be used to calculate
-  # the linear predictor
-  betas.and.alphas <- convert2(betas.and.gammas = rbind2(beta,gamma), 
-                               main.effect.names = main.effect.names, 
-                               interaction.names = interaction.names)
-  
-  crossprod(y - x %*% betas.and.alphas) +  
-    lambda.beta * (crossprod(weights[main.effect.names,], abs(beta))) + 
-    lambda.gamma * (crossprod(weights[interaction.names,], abs(gamma)))
+    # first convert gammas to alphas which will be used to calculate
+    # the linear predictor
+    betas.and.alphas <- convert2(beta = beta,
+                                 gamma = gamma, 
+                                 main.effect.names = main.effect.names, 
+                                 interaction.names = interaction.names)
+    
+    crossprod(y - x %*% betas.and.alphas) +  
+        lambda.beta * (crossprod(weights[main.effect.names,], abs(beta))) + 
+        lambda.gamma * (crossprod(weights[interaction.names,], abs(gamma)))
 }
 
 #' Fit the Strong Heredity Interactions Model
@@ -1071,7 +1074,8 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
 #'   correspond to 1 lambda_gamma and the 20 lambda_betas
 shim_multiple_faster <- function(x, y, main.effect.names, interaction.names, 
                           lambda.beta = NULL, lambda.gamma = NULL, threshold, max.iter, 
-                          initialization.type = "ridge", 
+                          initialization.type = "ridge",
+                          intercept=TRUE, normalize=TRUE,
                           nlambda.gamma = 20, 
                           nlambda.beta = 20,
                           cores = 2) {
@@ -1080,14 +1084,30 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
       # interaction.names = interaction_names;
       # lambda.beta = NULL ; lambda.gamma = NULL
       # threshold = 1e-5 ; max.iter = 500 ; initialization.type = "ridge";
-      # nlambda.gamma = 5; nlambda.beta = 10; cores = 2
+      # nlambda.gamma = 5; nlambda.beta = 10; cores = 1;
+      # intercept=TRUE; normalize=TRUE
+    
+    this.call = match.call()
+    obj = standardize(x = x, y = y,intercept = intercept, normalize = normalize)
+    x = obj$x
+    y = obj$y
+    bx = obj$bx
+    by = obj$by
+    sx = obj$sx
+    #n = nrow(x)
+    #p = ncol(x)
+    
     if (is.null(lambda.gamma) & is.null(lambda.beta)) {
         
         tuning_params <- shim_once(x = x, y = y, 
                                    main.effect.names = main.effect.names,
                                    interaction.names = interaction.names,
                                    initialization.type = "ridge",
-                                   nlambda.gamma = nlambda.gamma, nlambda.beta = nlambda.beta)
+                                   nlambda.gamma = nlambda.gamma, 
+                                   nlambda.beta = nlambda.beta)
+        
+        # tuning_params$lambda_gamma
+        # tuning_params$lambda_beta
         
         # convert to a list. each element corresponds to a value of lambda_gamma
         lambda_gamma_list <- rep(lapply(seq_len(length(tuning_params$lambda_gamma)), 
@@ -1104,7 +1124,8 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
         
         lambda_beta_list <- lapply(seq_len(length(unlist(lambda.beta))), 
                                    function(i) unlist(lambda.beta)[i])
-        
+        nlambda.gamma = length(lambda.gamma)
+        nlambda.beta = length(lambda.beta)
     }
     
     # total number of tuning parameters
@@ -1231,15 +1252,15 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
         
         # this will store the results but will be shorter than nlambda
         gamma_hat_next_list_not_converged <- parallel::mclapply(seq_len(nlambda)[not_converged], 
-                                                      function(i) {
-                                                          if (i %in% zero_x_tilde) coef_zero_gamma_matrix else
-                                                              as.matrix(coef(glmnet::glmnet(
-                                                                  x = x_tilde_list[[i]], 
-                                                                  y = y_tilde_list[[i]],
-                                                                  penalty.factor = adaptive_weights_list[[i]][interaction.names,,drop=F],
-                                                                  lambda = lambda_gamma_list[[i]],
-                                                                  standardize = F, intercept = F))[-1,,drop = F])},
-                                                      mc.cores = cores)
+            function(i) {
+                if (i %in% zero_x_tilde) coef_zero_gamma_matrix else
+                    as.matrix(coef(glmnet::glmnet(
+                        x = x_tilde_list[[i]], 
+                        y = y_tilde_list[[i]],
+                        penalty.factor = adaptive_weights_list[[i]][interaction.names,,drop=F],
+                        lambda = lambda_gamma_list[[i]],
+                        standardize = F, intercept = F))[-1,,drop = F])},
+            mc.cores = cores)
 
         # k = 1
         # for (j in not_converged) {
@@ -1247,7 +1268,8 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
         #     k = k + 1
         # }
         
-        gamma_hat_next_list <- replace(gamma_hat_next_list, not_converged, gamma_hat_next_list_not_converged)
+        gamma_hat_next_list <- replace(gamma_hat_next_list, not_converged, 
+                                       gamma_hat_next_list_not_converged)
         
         #%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         # update beta (main effect parameter) step 4 of algortihm in Choi et al
@@ -1268,21 +1290,23 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
             
             for (notconverged in not_converged) {
                 y_tilde_2_list_temp[[notconverged]] <- y - 
-                    x[,j_prime_not_in_j, drop = F] %*% beta_hat_next_list[[notconverged]][j_prime_not_in_j, , drop = F]
+                    x[,j_prime_not_in_j, drop = F] %*% 
+                    beta_hat_next_list[[notconverged]][j_prime_not_in_j, , drop = F]
             }
             
             # length(y_tilde_2_list_temp)
             # mclapply is faster than lapply even with just two cores
-            term_2_temp_list_not_converged <- parallel::mclapply(seq_len(nlambda)[not_converged], function(i) 
+            term_2_temp_list_not_converged <- parallel::mclapply(seq_len(nlambda)[not_converged], 
+            function(i) 
                 as.matrix(
                     rowSums(
                         xtilde_mod(beta.main.effects = beta_hat_next_list[[i]][j_prime_not_in_j, , drop = F],
                                    gamma.interaction.effects = gamma_hat_next_list[[i]],
-                                   interaction.names = interaction.names[-grep(j, interaction.names)], 
+                                   interaction.names = interaction.names[-grep(j, interaction.names)],
                                    data.main.effects = x[,j_prime_not_in_j, drop = F])
                     ), 
                     ncol = 1), 
-                mc.cores = cores)
+            mc.cores = cores)
             
             term_2_temp_list <- replace(term_2_temp_list, not_converged, term_2_temp_list_not_converged)
             
@@ -1308,7 +1332,8 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
             term_1_list <- replace(term_1_list, not_converged, term_1_list_not_converged)
             
             # j' greater than j
-            j.prime.greater <- index[which(index[,"index"] > index[which(index$main.effect.names == j),2]),
+            j.prime.greater <- index[which(index[,"index"] > 
+                                               index[which(index$main.effect.names == j),2]),
                                      "main.effect.names"]
             
             term_2_list_not_converged <- if (length(j.prime.greater) != 0) {
@@ -1391,22 +1416,186 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
         # colnames(x_tilde_list[[1]])
         
         adaptive_weights_list_not_converged <- lapply(seq_len(nlambda)[not_converged], 
-                                                      function(i) 
-                                                          update_weights(betas = beta_hat_previous_list[[i]],
-                                                                         gammas = gamma_hat_previous_list[[i]],
-                                                                         main.effect.names = main.effect.names, 
-                                                                         interaction.names = interaction.names))
+                    function(i) 
+                        update_weights(betas = beta_hat_previous_list[[i]],
+                                       gammas = gamma_hat_previous_list[[i]],
+                                       main.effect.names = main.effect.names, 
+                                       interaction.names = interaction.names))
         
-        adaptive_weights_list <- replace(adaptive_weights_list, not_converged, adaptive_weights_list_not_converged)
+        adaptive_weights_list <- replace(adaptive_weights_list, not_converged, 
+                                         adaptive_weights_list_not_converged)
         
         
     }
     
-    return(list(beta = beta_hat_next_list, gamma = gamma_hat_next_list, Q = Q, m = m,
-                converged = converged))
+    # convert to original scale
+    betas_original_scale_list <- lapply(beta_hat_next_list, function(i) i/sx[main.effect.names])
+    gammas_original_scale_list <- lapply(gamma_hat_next_list, function(i) i/sx[interaction.names])
+    
+    
+    # convert gammas to alphas
+    betas_alphas_original_scale <- mapply(convert2, 
+           beta = betas_original_scale_list, 
+           gamma = gammas_original_scale_list, 
+           MoreArgs = list(main.effect.names = main.effect.names, 
+                           interaction.names = interaction.names))
+
+    dimnames(betas_alphas_original_scale) <- list(c(main.effect.names, interaction.names),
+                                   paste0("s",1:nlambda))
+    
+    betas_original_scale <- betas_alphas_original_scale[main.effect.names,]
+    alphas_original_scale <- betas_alphas_original_scale[interaction.names,]
+    
+    b0 <- vector(length = nlambda)
+    for (lam in seq_len(nlambda)) {
+        b0[lam] <- by - sum(betas_original_scale[,lam,drop = F] * bx[main.effect.names]) - 
+            sum(alphas_original_scale[,lam,drop=F]*bx[interaction.names]) 
+    }
+    names(b0) <- paste0("s",1:nlambda)
+    
+    # # original scale and convert to sparse matrix
+    # beta <- as(matrix(unlist(beta, use.names = F),
+    #                   ncol = nlambda,
+    #                   byrow = T,
+    #                   dimnames = list(main.effect.names, paste0("s",1:nlambda))),
+    #            "dgCMatrix")
+    # 
+    gamma_final <- as(matrix(unlist(gammas_original_scale_list, use.names = F),
+                    ncol = nlambda,
+                    byrow = T,
+                    dimnames = list(interaction.names, paste0("s",1:nlambda))),
+                "dgCMatrix")
+    beta_final = as(betas_original_scale,"dgCMatrix")
+    alpha_final = as(alphas_original_scale,"dgCMatrix")
+
+    out = list(b0 = b0,
+               beta = beta_final, 
+               alpha = alpha_final, 
+               gamma = gamma_final,
+               lambda.beta = unlist(lambda_beta_list),
+               lambda.gamma = unlist(lambda_gamma_list),
+               Q = Q, m = m,
+               dfbeta = nonzero(beta_final),
+               dfalpha = nonzero(alpha_final),
+               converged = converged, x=x,y=y,bx=bx,by=by,sx=sx,
+               intercept = intercept, normalize = normalize,call=this.call) 
+    class(out) = "shim"
+    return(out)
+    
+    # return(list(beta = beta_hat_next_list, gamma = gamma_hat_next_list, Q = Q, m = m,
+    #             converged = converged))
     
 }
 
+
+
+plot.shim <- function (x, xvar = c("norm", "lambda", "dev"), label = T, 
+          ...) {
+    xvar = match.arg(xvar)
+    plotShim(x$beta, 
+             # lambda = x$lambda, 
+             df = x$dfbeta, 
+             # dev = x$dev.ratio, 
+             label = label, 
+             xvar = xvar, ...)
+}
+
+
+plotShim <- function (beta, norm, 
+                      #lambda, 
+                      df, 
+                      #dev, 
+                      label = T, 
+                       xvar = c("norm", 
+                                "lambda", "dev"), xlab = iname, ylab = "Coefficients", ...) {
+    #beta <- res2$beta
+    which = nonzero(beta)
+    nwhich = length(which)
+    switch(nwhich + 1, `0` = {
+        warning("No plot produced since all coefficients zero")
+        return()
+    }, `1` = warning("1 or less nonzero coefficients; glmnet plot is not meaningful"))
+    beta = as.matrix(beta[which, , drop = FALSE])
+    xvar = match.arg(xvar)
+    switch(xvar, norm = {
+        index = if (missing(norm)) apply(abs(beta), 2, sum) else norm
+        iname = "L1 Norm"
+        approx.f = 1
+    }, lambda = {
+        index = log(lambda)
+        iname = "Log Lambda"
+        approx.f = 0
+    }, dev = {
+        index = dev
+        iname = "Fraction Deviance Explained"
+        approx.f = 1
+    })
+    dotlist = list(...)
+    type = dotlist$type
+    if (is.null(type)) 
+        matplot(index, t(beta), lty = 1, xlab = xlab, ylab = ylab, 
+                type = "l", ...)
+    else matplot(index, t(beta), lty = 1, xlab = xlab, ylab = ylab, 
+                 ...)
+    atdf = pretty(index)
+    # prettydf = approx(x = index, y = df, xout = atdf, rule = 2, 
+    #                   method = "constant", f = approx.f)$y
+    # axis(3, at = atdf, labels = prettydf, tcl = NA)
+    if (label) {
+        nnz = length(which)
+        xpos = max(index)
+        pos = 4
+        if (xvar == "lambda") {
+            xpos = min(index)
+            pos = 2
+        }
+        xpos = rep(xpos, nnz)
+        ypos = beta[, ncol(beta)]
+        text(xpos, ypos, paste(which), cex = 0.5, pos = pos)
+    }
+}
+
+nonzero <- function(beta, bystep = FALSE) {
+    beta <- as.matrix(beta)
+    nr = nrow(beta)
+    if (nr == 1) {
+        if (bystep) 
+            apply(beta, 2, function(x) if (abs(x) > 0) 
+                1
+                else NULL)
+        else {
+            if (any(abs(beta) > 0)) 
+                1
+            else NULL
+        }
+    }
+    else {
+        beta = abs(beta) > 0
+        which = seq(nr)
+        ones = rep(1, ncol(beta))
+        nz = as.vector((beta %*% ones) > 0)
+        which = which[nz]
+        if (bystep) {
+            if (length(which) > 0) {
+                beta = as.matrix(beta[which, , drop = FALSE])
+                nzel = function(x, which) if (any(x)) 
+                    which[x]
+                else NULL
+                which = apply(beta, 2, nzel, which)
+                if (!is.list(which)) 
+                    which = data.frame(which)
+                which
+            }
+            else {
+                dn = dimnames(beta)[[2]]
+                which = vector("list", length(dn))
+                names(which) = dn
+                which
+            }
+        }
+        else which
+    }
+}
 
 
 
@@ -1804,7 +1993,7 @@ standardize <- function(x, y, intercept, normalize) {
     by = 0
   }
   if (normalize) {
-    sx = sqrt(colSums(x^2))
+    sx = sqrt(colSums(x^2)/n)
     x = scale(x,FALSE,sx)
   } else {
     sx = rep(1,p)
@@ -1815,3 +2004,17 @@ standardize <- function(x, y, intercept, normalize) {
 
 
 
+# X <- model.matrix(
+#     as.formula(paste0("~(",paste0(main_effect_names, collapse = "+"),")^2-1")), 
+#     data = DT %>% as.data.frame()) 
+# 
+# 
+# x.s <- scale(X)
+# 
+# apply(x.s, c(1,2), function(i) i^2) %>% colSums()
+# 
+# x.sta <- standardize(x,y,T,T)$x
+# 
+# apply(x.sta, c(1,2), function(i) i^2) %>% colSums()
+# 
+# plot(x.s[,1],x.sta[,1])

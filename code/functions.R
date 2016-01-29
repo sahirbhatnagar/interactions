@@ -1094,6 +1094,7 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
       # x = X; y = Y; main.effect.names = main_effect_names;
       # interaction.names = interaction_names;
       # lambda.beta = NULL ; lambda.gamma = NULL
+      # lambda.beta <- glmnet.object$lambda.beta ; lambda.gamma <- glmnet.object$lambda.gamma
       # threshold = 1e-5 ; max.iter = 500 ; initialization.type = "ridge";
       # nlambda.gamma = 5; nlambda.beta = 10; cores = 1;
       # intercept=TRUE; normalize=TRUE
@@ -1131,14 +1132,18 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
         # these are already of the proper length i.e., if the user specifies
         # lambda.beta and lambda.gamma then they this will not take all possible 
         # combinations of lambda.beta and lambda.gamma. It will be the first element
-        # of each as a pair, and so on ...
+        # of each as a pair, and so on. This is done on purpose for use with
+        # the cv.shim function which uses the same lambda sequences for each fold...
         lambda_gamma_list <- lapply(seq_len(length(lambda.gamma)), 
                                         function(i) lambda.gamma[i])
                                  
         lambda_beta_list <- lapply(seq_len(length(unlist(lambda.beta))), 
                                    function(i) unlist(lambda.beta)[i])
-        nlambda.gamma = length(lambda.gamma)
-        nlambda.beta = length(lambda.beta)
+        nlambda.gamma = length(unique(lambda.gamma))
+        # this isnt good coding practice, but cnat think of another way
+        # the frequency will always be the same if using the sequence defined by this function
+        # but is not robust to user specified inputs for lambda and gamma
+        nlambda.beta = as.numeric(table(lambda.gamma)[1])
     }
     
     # total number of tuning parameters
@@ -1380,7 +1385,8 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
         delta[is.na(delta)] <- threshold 
         converged <- as.numeric(delta<=threshold)
         print(paste("Iteration:",m, ", Q(theta):",Q[m+1,2]))
-        print(paste(converged))
+        print(converged)
+        #print(paste(converged))
         
         m = m + 1
         
@@ -1450,7 +1456,10 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
                dfbeta = nonzero(beta_final),
                dfalpha = nonzero(alpha_final),
                converged = converged, x=x,y=y,bx=bx,by=by,sx=sx,
-               intercept = intercept, normalize = normalize,call=this.call) 
+               intercept = intercept, normalize = normalize,call=this.call,
+               nlambda.gamma = nlambda.gamma,
+               nlambda.beta = nlambda.beta,
+               nlambda = nlambda) 
     class(out) = "shim"
     return(out)
     
@@ -1649,20 +1658,31 @@ nonzero <- function(beta, bystep = FALSE) {
 require(doMC)
 registerDoMC(cores=4)
 
-cv.shim <- function (#x, y, offset = NULL, 
-                     #lambda = NULL,
-                     weights, 
-                     type.measure = c("mse", "deviance", "class", "auc", "mae"), 
-                     nfolds = 10, 
-                     foldid, 
-                     grouped = TRUE, keep = FALSE, parallel = FALSE,
-                     x, y, main.effect.names, interaction.names, 
+cv.shim <- function (x, y, main.effect.names, interaction.names, 
                      lambda.beta = NULL, lambda.gamma = NULL, threshold, max.iter, 
                      initialization.type = "ridge",
                      intercept=TRUE, normalize=TRUE,
                      nlambda.gamma = 20, 
                      nlambda.beta = 20,
-                     cores = 2, ...) {
+                     cores = 1,
+                     #x, y, offset = NULL, 
+                     #lambda = NULL,
+                     weights, 
+                     type.measure = c("mse", "deviance", "class", "auc", "mae"), 
+                     nfolds = 10, 
+                     foldid, 
+                     grouped = TRUE, keep = FALSE, parallel = TRUE, ...) {
+    
+    # x = X; y = Y; main.effect.names = main_effect_names;
+    # interaction.names = interaction_names;
+    # lambda.beta = NULL ; lambda.gamma = NULL
+    # threshold = 1e-4 ; max.iter = 500 ; initialization.type = "ridge";
+    # nlambda.gamma = 5; nlambda.beta = 20; cores = 1;
+    # intercept=TRUE; normalize=TRUE
+    # 
+    # nfolds = 5
+    # grouped = TRUE; keep = FALSE; parallel = TRUE
+    
     if (missing(type.measure)) 
         type.measure = "default"
     else type.measure = match.arg(type.measure)
@@ -1681,19 +1701,21 @@ cv.shim <- function (#x, y, offset = NULL,
     if (any(which)) 
         glmnet.call = glmnet.call[-which]
     glmnet.call[[1]] = as.name("glmnet")
-    glmnet.object = shim_multiple_faster(x, y, 
-                                         main.effect.names,
-                                         interaction.names,
-                                         lambda.beta, lambda.gamma,
-                                         threshold, max.iter , initialization.type,
-                                         nlambda.gamma, nlambda.beta, cores = 1)
-
+    glmnet.object = shim_multiple_faster(x = x, y = y, 
+                                         main.effect.names = main.effect.names,
+                                         interaction.names = interaction.names,
+                                         lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                                         threshold = threshold, max.iter = max.iter, 
+                                         initialization.type = initialization.type,
+                                         nlambda.gamma = nlambda.gamma, 
+                                         nlambda.beta = nlambda.beta, cores = 1)
+    
     glmnet.object$call = glmnet.call
+    glmnet.object$nlambda.beta
     nz = sapply(predict(glmnet.object, type = "nonzero"), 
                      length)
     if (missing(foldid)) 
-        foldid = sample(rep(seq(nfolds), length = N))
-    else nfolds = max(foldid)
+        foldid = sample(rep(seq(nfolds), length = N)) else nfolds = max(foldid)
     if (nfolds < 3) 
         stop("nfolds must be bigger than 3; nfolds=10 recommended")
     outlist = as.list(seq(nfolds))
@@ -1701,20 +1723,23 @@ cv.shim <- function (#x, y, offset = NULL,
         outlist = foreach(i = seq(nfolds), .packages = c("glmnet")) %dopar% 
         {
             which = foldid == i
-            if (is.matrix(y)) 
-                y_sub = y[!which, ]
-            else y_sub = y[!which]
+            if (is.matrix(y)) y_sub = y[!which, ] else y_sub = y[!which]
             # glmnet(x[!which, , drop = FALSE], y_sub, lambda = lambda, 
             #        offset = offset_sub, weights = weights[!which], 
             #        ...)
             print(paste("Foldid = ",i))
-            shim_multiple_faster(x[!which, , drop = FALSE], y_sub, 
-                                 main.effect.names,
-                                 interaction.names,
+            shim_multiple_faster(x = x[!which, , drop = FALSE], 
+                                 y = y_sub, 
+                                 #x = x , y = y,
+                                 main.effect.names = main.effect.names,
+                                 interaction.names = interaction.names,
                                  lambda.beta = glmnet.object$lambda.beta, 
                                  lambda.gamma = glmnet.object$lambda.gamma,
-                                 threshold, max.iter , initialization.type,
-                                 nlambda.gamma, nlambda.beta, cores = 1)
+                                 threshold = threshold, 
+                                 max.iter = max.iter , 
+                                 initialization.type = initialization.type,
+                                 nlambda.gamma = nlambda.gamma, 
+                                 nlambda.beta = nlambda.beta, cores = 1)
         }
     }
     else {
@@ -1736,10 +1761,18 @@ cv.shim <- function (#x, y, offset = NULL,
         }
     }
     
+    #outlist[[1]]
+    
     #fun = paste("cv", class(glmnet.object)[[1]], sep = ".")
-    lambda = glmnet.object$lambda
-    cvstuff = do.call(cv_lspath, list(outlist, lambda, x, y, weights, 
-                                offset, foldid, type.measure, grouped, keep))
+    lambda.beta = glmnet.object$lambda.beta
+    lambda.gamma = glmnet.object$lambda.gamma
+    
+    cvstuff = do.call(cv_lspath, list(outlist = outlist, lambda.beta = lambda.beta, 
+                                      lambda.gamma = lambda.gamma, 
+                                      x = x, y = y, foldid = foldid, 
+                                      nlambda.beta = glmnet.object$nlambda.beta,
+                                      nlambda.gamma = glmnet.object$nlambda.gamma,
+                                      nlambda = glmnet.object$nlambda))
     cvm = cvstuff$cvm
     cvsd = cvstuff$cvsd
     nas = is.na(cvsd)
@@ -1750,22 +1783,26 @@ cv.shim <- function (#x, y, offset = NULL,
         nz = nz[!nas]
     }
     cvname = cvstuff$name
-    out = list(lambda = lambda, cvm = cvm, cvsd = cvsd, cvup = cvm + 
-                   cvsd, cvlo = cvm - cvsd, nzero = nz, name = cvname, 
+    out = list(lambda.beta = lambda.beta, lambda.gamma = lambda.gamma, 
+               cvm = cvm, cvsd = cvsd, cvup = cvm + cvsd, 
+               cvlo = cvm - cvsd, nzero = nz, name = cvname, 
                glmnet.fit = glmnet.object)
-    if (keep) 
-        out = c(out, list(fit.preval = cvstuff$fit.preval, foldid = foldid))
-    lamin = if (cvname == "AUC") 
-        getmin(lambda, -cvm, cvsd)
-    else getmin(lambda, cvm, cvsd)
-    obj = c(out, as.list(lamin))
+    # if (keep) 
+    #     out = c(out, list(fit.preval = cvstuff$fit.preval, foldid = foldid))
+    lamin.beta = if (cvname == "AUC") 
+        getmin(lambda.beta, -cvm, cvsd, type = "beta") else getmin(lambda.beta, cvm, cvsd, type = "beta")
+    lamin.gamma = if (cvname == "AUC") 
+        getmin(lambda.gamma, -cvm, cvsd, type = "gamma") else getmin(lambda.gamma, cvm, cvsd, type = "gamma")
+    obj = c(out, as.list(lamin.beta), as.list(lamin.gamma))
     class(obj) = "cv.glmnet"
     obj
 }
 
+
 ############################## !!!!!!!!!!!!!!!!!!!!!! NEED TO WORK ON CV_LSPATH AND CV.SHIM (JAN 23 7:23 PM)
 
-cv_lspath <- function(outlist, lambda, x, y, foldid) {
+cv_lspath <- function(outlist, lambda.beta, lambda.gamma, x, y, foldid,
+                      nlambda.beta, nlambda.gamma, nlambda) {
     #   typenames <- c(misclass = "Misclassification Error", loss = "Margin Based Loss")
     #   if (pred.loss == "default") 
     #     pred.loss <- "loss"
@@ -1773,9 +1810,14 @@ cv_lspath <- function(outlist, lambda, x, y, foldid) {
     #     warning("Only 'loss' available for least squares regression; 'loss' used")
     #     pred.loss <- "loss"
     #   }
+    
+    # lambda.beta = glmnet.object$lambda.beta
+    # lambda.gamma = glmnet.object$lambda.gamma
+    # nlambda = glmnet.object$nlambda
+    
     y <- as.double(y)
     nfolds <- max(foldid)
-    predmat <- matrix(NA, length(y), length(lambda))
+    predmat <- matrix(NA, length(y), nlambda)
     nlams <- double(nfolds)
     for (i in seq(nfolds)) {
         #i=1
@@ -1786,9 +1828,10 @@ cv_lspath <- function(outlist, lambda, x, y, foldid) {
         # this gives the predicted responses for the subjects in the held-out fold for each lambda
         # so if each fold has 20 subjects, and there are 100 lambdas, then this will return a 
         # 20 x 100 matrix
-        preds <- x[which, , drop = FALSE] %*% t(fitobj$beta)
+        #preds <- x[which, , drop = FALSE]  %*% rbind2(fitobj$beta, fitobj$alpha)
+        preds <- predict(fitobj, newx = x[which, ,drop = F], type = "link")
         #preds <- predict(fitobj, x[which, , drop = FALSE], type = "link")
-        nlami <- length(fitobj$lambda)
+        nlami <- nlambda
         predmat[which, seq(nlami)] <- preds
         nlams[i] <- nlami
     }
@@ -1816,6 +1859,18 @@ cvcompute <- function(mat, foldid, nlams) {
 }
 
 
+getmin <- function (lambda, cvm, cvsd, type) {
+    cvmin = min(cvm, na.rm = TRUE)
+    idmin = cvm <= cvmin
+    lambda.min = max(lambda[idmin], na.rm = TRUE)
+    idmin = match(lambda.min, lambda)
+    semin = (cvm + cvsd)[idmin]
+    idmin = cvm <= semin
+    lambda.1se = max(lambda[idmin], na.rm = TRUE)
+    res <- list(lambda.min = lambda.min, lambda.1se = lambda.1se)
+    names(res) <- c(paste0("lambda.min.",type),paste0("lambda.1se.",type) )
+    res
+}
 
 #' Fit the Strong Heredity Interactions Model with Fixed Betas
 #' 

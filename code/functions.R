@@ -1655,14 +1655,13 @@ nonzero <- function(beta, bystep = FALSE) {
 }
 
 
-require(doMC)
-registerDoMC(cores=4)
 
-cv.shim <- function (x, y, main.effect.names, interaction.names, 
+
+cv.shim <- function(x, y, main.effect.names, interaction.names, 
                      lambda.beta = NULL, lambda.gamma = NULL, threshold, max.iter, 
                      initialization.type = "ridge",
                      intercept=TRUE, normalize=TRUE,
-                     nlambda.gamma = 20, 
+                     nlambda.gamma = 5, 
                      nlambda.beta = 20,
                      cores = 1,
                      #x, y, offset = NULL, 

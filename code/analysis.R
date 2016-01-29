@@ -15,12 +15,33 @@ options(scipen=999, digits = 10)
 source("packages.R")
 source("data.R")
 source("https://raw.githubusercontent.com/noamross/noamtools/master/R/proftable.R")
-source("~/Dropbox/Winter 2014/MATH 783/Assignments/A3/multiplot.R")
+#source("~/Dropbox/Winter 2014/MATH 783/Assignments/A3/multiplot.R")
 source("functions.R")
 library(ggrepel)
 library(latex2exp)
 library(gridExtra)
 library(cowplot)
+
+
+
+# crossvalidation ---------------------------------------------------------
+
+require(doMC)
+registerDoMC(cores=10)
+
+cv.shim <- cv.shim(x = X, y = Y, main.effect.names = main_effect_names,
+                   interaction.names = interaction_names,
+                   lambda.beta = NULL , lambda.gamma = NULL,
+                   threshold = 1e-4 , max.iter = 500 , initialization.type = "ridge",
+                   intercept = TRUE, normalize = TRUE,
+                   nlambda.gamma = 5, nlambda.beta = 20, cores = 1,
+                   type.measure = c("mse", "deviance", "class", "auc", "mae"), 
+                   nfolds = 10, grouped = TRUE, keep = FALSE, parallel = TRUE)
+
+
+
+
+
 
 # plot for Celia  ---------------------------------------------------------
 

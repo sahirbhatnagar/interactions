@@ -10,7 +10,7 @@
 
 dev.off()
 rm(list = ls())
-options(scipen=999, digits = 10)
+options(scipen=999, digits = 9)
 
 source("packages.R")
 source("data.R")
@@ -18,8 +18,8 @@ source("https://raw.githubusercontent.com/noamross/noamtools/master/R/proftable.
 #source("~/Dropbox/Winter 2014/MATH 783/Assignments/A3/multiplot.R")
 source("functions.R")
 library(ggrepel)
-library(latex2exp)
-library(gridExtra)
+# library(latex2exp)
+# library(gridExtra)
 library(cowplot)
 
 
@@ -29,29 +29,52 @@ library(cowplot)
 require(doMC)
 registerDoMC(cores=10)
 
-cv.shim <- cv.shim(x = X, y = Y, main.effect.names = main_effect_names,
+system.time(cvfit <- cv.shim(x = X, y = Y, main.effect.names = main_effect_names,
                    interaction.names = interaction_names,
                    lambda.beta = NULL , lambda.gamma = NULL,
-                   threshold = 1e-4 , max.iter = 500 , initialization.type = "ridge",
+                   threshold = 1e-4 , max.iter = 200 , initialization.type = "ridge",
                    intercept = TRUE, normalize = TRUE,
                    nlambda.gamma = 5, nlambda.beta = 20, cores = 1,
                    type.measure = c("mse", "deviance", "class", "auc", "mae"), 
-                   nfolds = 10, grouped = TRUE, keep = FALSE, parallel = TRUE)
+                   nfolds = 10, grouped = TRUE, keep = FALSE, parallel = TRUE))
 
 
+plot(cvfit)
+coef(cvfit)
+cvfit$lambda.min.beta
 
 
+cvfit$glmnet.fit$converged
+cvfit$glmnet.fit$beta[,which(cvfit$glmnet.fit$converged==1)]
+cvfit$glmnet.fit$alpha[,which(cvfit$glmnet.fit$converged==1)]
+cvfit$glmnet.fit$b0[which(cvfit$glmnet.fit$converged==1)]
+cvfit$glmnet.fit$nlambda.gamma
 
+cvfit$lambda.beta[which(cvfit$glmnet.fit$converged==1)] %>% unique() %>% length
+cvfit$lambda.gamma[which(cvfit$glmnet.fit$converged==1)] %>% unique %>% length()
+
+which(cvfit$lambda.beta==cvfit$lambda.1se.beta)
+which(cvfit$lambda.gamma==cvfit$lambda.1se.gamma)[1]
+
+(cvfit$converged!=10) %>% sum
+
+coef(cvfit, s.beta = "s76.beta", s.gamma = "s76.gamma")
+coef(cvfit, s.beta = "lambda.min.beta", s.gamma = "lambda.min.gamma")
+coef(cvfit, s.beta = "lambda.1se.beta", s.gamma = "lambda.1se.gamma")
+names(cvfit)
+plot(cvfit$cvm[cvfit$cvm<1e4])
+length(cvfit$cvm)
+d <- coef(cvfit$glmnet.fit) %>% as.matrix()
+apply(coef(cvfit$glmnet.fit), 2, nonzero)
 
 # plot for Celia  ---------------------------------------------------------
-
 
 # 1 core is faster than more ...
 system.time(res2 <- shim_multiple_faster(x = X, y = Y, main.effect.names = main_effect_names,
                      interaction.names = interaction_names,
                      lambda.beta = NULL , lambda.gamma = NULL,
                      threshold = 1e-4 , max.iter = 500 , initialization.type = "ridge",
-                     nlambda.gamma = 5, nlambda.beta = 20, cores = 1))
+                     nlambda.gamma = 20, nlambda.beta = 10, cores = 10))
 
 DT_norm <- as.data.table(t(rbind(as.matrix(res2$beta), as.matrix(res2$alpha))))
 colnames(DT_norm)

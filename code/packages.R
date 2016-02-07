@@ -83,5 +83,10 @@ if(!pckg) {
   require(parallel)
 }
 
-
+pckg = try(require(doMC))
+if(!pckg) {
+  cat("Installing 'doMC' from CRAN\n")
+  getPckg("doMC")
+  require(doMC)
+}
 

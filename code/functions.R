@@ -143,7 +143,7 @@ convert2 <- function(beta, gamma, main.effect.names, interaction.names,
             stringr::str_split(":") %>% 
             unlist
         
-        # convert alpha to gamma
+        # convert gamma to alpha
         betas.and.alphas[k,] <- betas.and.gammas[k,]*prod(betas.and.gammas[main,]) 
     }
     
@@ -210,7 +210,7 @@ xtilde <- function(interaction.names, data.main.effects, beta.main.effects){
 #'   parameters
 #' @return matrix of working X's (xtilde) of dimension n x (p*(p-1)/2)
 #' @note this function is a modified x_tilde for step 4 because we thought maybe
-#'   there was a type. Math and results suggests that there IS a typo. This is
+#'   there was a typo. Math and results suggests that there IS a typo. This is
 #'   now being used
 xtilde_mod <- function(interaction.names, data.main.effects, beta.main.effects, 
                        gamma.interaction.effects){
@@ -311,6 +311,8 @@ ridge_weights <- function(x, y, main.effect.names, interaction.names,
 #' @param interaction.names character vector of interaction names. must be 
 #'   separated by a ':' (e.g. x1:x2)
 #' @return value of likelihood function
+#' @note you dont use the intercept in the calculation of the Q function
+#' because its not being penalized
 
 Q_theta <- function(x, y, beta, gamma, weights, 
                     lambda.beta, lambda.gamma, main.effect.names, 
@@ -1081,24 +1083,40 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
 
 
 
-#' Fit Strong Heredity Model for Multiple Lambdas 
-#' trying to make a faster version so that it stops for a converged
-#' lambda pair
-#' @param nlambda.gamma number of tuning parameters for gamma
-#' @param nlambda.beta number of tuning parameters for beta
+#' Fit Strong Heredity Model for Multiple Lambdas trying to make a faster 
+#' version so that it stops for a converged lambda pair
+#' @param lambda.beta sequence of tuning parameters for beta. If NULL, this 
+#'   function will automatically calculate a sequence which will be over a grid 
+#'   of tuning parameters for gamma as well. If the user specifies a sequence 
+#'   then this function will not automatically perform the serach over a grid.
+#'   You will need to create the grid yourself e.g. repeat the lambda.gamma for
+#'   each value of lambda.beta
+#' @param nlambda.gamma number of tuning parameters for gamma. This needs to be 
+#'   specified even for user defined inputs
+#' @param nlambda.beta number of tuning parameters for beta. This needs to be 
+#'   specified even for user defined inputs
+#' @param nlambda total number of tuning parameters. This is important to 
+#'   specify especially when a user defined sequence of tuning parameters is 
+#'   set.
 #' @param cores number of cores to use. this is used in the step to calculate
 #'   
 #' @note let glmnet choose the lambda_betas and lambda_gammas
-#' @note the index of the tuning parameters is as follows. If for example there
+#' @note the index of the tuning parameters is as follows. If for example there 
 #'   are 10 lambda_gammas, and 20 lambda_betas, then the first lambda_gamma gets
 #'   repeated 20 times. So the first twenty entries of tuning parameters 
 #'   correspond to 1 lambda_gamma and the 20 lambda_betas
+#' @note if the user specifies lambda.beta and lambda.gamma then they this will 
+#'   not take all possible combinations of lambda.beta and lambda.gamma. It will
+#'   be the first element of each as a pair, and so on. This is done on purpose 
+#'   for use with the cv.shim function which uses the same lambda sequences for 
+#'   each fold.
 shim_multiple_faster <- function(x, y, main.effect.names, interaction.names, 
                           lambda.beta = NULL, lambda.gamma = NULL, threshold, max.iter, 
                           initialization.type = "ridge",
                           intercept=TRUE, normalize=TRUE,
                           nlambda.gamma = 20, 
                           nlambda.beta = 20,
+                          nlambda = 400, 
                           cores = 2) {
         
       # x = X; y = Y; main.effect.names = main_effect_names;
@@ -1149,15 +1167,7 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
                                  
         lambda_beta_list <- lapply(seq_len(length(unlist(lambda.beta))), 
                                    function(i) unlist(lambda.beta)[i])
-        nlambda.gamma = length(unique(lambda.gamma))
-        # this isnt good coding practice, but cnat think of another way
-        # the frequency will always be the same if using the sequence defined by this function
-        # but is not robust to user specified inputs for lambda and gamma
-        nlambda.beta = as.numeric(table(lambda.gamma)[1])
     }
-    
-    # total number of tuning parameters
-    nlambda = nlambda.gamma * nlambda.beta
     
     adaptive.weights <- ridge_weights(x = x, y = y, 
                                       main.effect.names = main.effect.names, 
@@ -1461,12 +1471,20 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
     lambda.gamma = unlist(lambda_gamma_list)
     names(lambda.gamma) = paste0("s",1:nlambda, ".gamma")
     
+    tuning.parameters <- matrix(nrow = 2, ncol = nlambda, 
+                                dimnames = list(c("lambda.beta", "lambda.gamma"), 
+                                                paste0("s",1:nlambda)))
+    
+    tuning.parameters["lambda.beta",] <- lambda.beta
+    tuning.parameters["lambda.gamma",] <- lambda.gamma
+    
     out = list(b0 = b0,
                beta = beta_final, 
                alpha = alpha_final, 
                gamma = gamma_final,
                lambda.beta = lambda.beta,
                lambda.gamma = lambda.gamma,
+               tuning.parameters = tuning.parameters,
                Q = Q, m = m,
                dfbeta = nonzero(beta_final),
                dfalpha = nonzero(alpha_final),
@@ -1485,19 +1503,21 @@ shim_multiple_faster <- function(x, y, main.effect.names, interaction.names,
 
 
 
-#' @description this function only works for tuning parameter values defined by the 
-#' shim_multiple_faster function. The interpolation feature is not working yet
-#' @param s.beta can be in "lambda.min.beta","lambda.1se.beta", "s1.beta", "s2.beta", ...
-#' 
+#' @description this function only works for tuning parameter values defined by 
+#'   the shim_multiple_faster function. The interpolation feature is not working
+#'   yet
+#' @param s index of tuning parameter. Must be a character and an element of
+#'   "s1","s2",...."s100", where "s100" is the index of the last pair of tuning
+#'   parameters
+#'   @param object is of class shim
 
 
-
-predict.shim <- function (object, newx, s.beta = NULL, s.gamma = NULL, 
+predict.shim <- function(object, newx, 
+                          #s.beta = NULL, 
+                          #s.gamma = NULL,
+                          s = NULL,
                           type = c("link", "response", "coefficients", 
                                    "nonzero", "class")) {
-  
- 
-  
   
   #type = "coefficients"
   #object = res2
@@ -1514,10 +1534,10 @@ predict.shim <- function (object, newx, s.beta = NULL, s.gamma = NULL,
       stop("You need to supply a value for 'newx'")
   }
   
-  length.s.beta <- length(s.beta)
-  length.s.gamma <- length(s.gamma)
-  
-  if (length.s.beta != length.s.gamma) stop("Length of s.beta must be equal to length of s.gamma")
+  # length.s.beta <- length(s.beta)
+  # length.s.gamma <- length(s.gamma)
+  # 
+  # if (length.s.beta != length.s.gamma) stop("Length of s.beta must be equal to length of s.gamma")
   
 #   if (!is.null(s)) {
 #     if (any(s %ni% paste0("s",1:nlambda))) stop(paste("s must be one of ",paste0("s",1:nlambda, collapse = ",") ))
@@ -1538,84 +1558,61 @@ predict.shim <- function (object, newx, s.beta = NULL, s.gamma = NULL,
 
   a0 = t(as.matrix(object$b0))
   rownames(a0) = "(Intercept)"
-  
-  # this is a (p+1)*nlambda matrix
-  nbeta = rbind(a0, object$beta, object$gamma)
-  # head(nbeta)
-  # dim(nbeta)
-  #colnames(nbeta) <- paste0("s",1:nlambda)
+  # this includes tuning parameters pairs that didnt converge
+  nbeta = rbind(a0, object$beta, object$alpha)
   nbeta@Dimnames <- list(X = c("(Intercept)",object$main.effect.names, object$interaction.names),
-                         Y = paste0("s",seq_len(object$nlambda)))
+                         Y = paste0("s",seq_len(object$nlambda)))  
   
-  
-  if (!is.null(s.beta) && !is.null(s.gamma)) {
-    
-    # names of predictors
-    #vnames = dimnames(nbeta)[[1]]
-    #dimnames(nbeta) = list(NULL, NULL)
-    lambda.beta = object$lambda.beta
-    lambda.gamma = object$lambda.gamma
-    
-    lamlist.beta = lambda.interp(lambda.beta[order(lambda.beta, decreasing = T)], s.beta)
-    lamlist.gamma = lambda.interp(unique(lambda.gamma), s.gamma)
-    
-    # first need to find which column corresponds to the 'left' lambda
-    # this step is necessary because the lambda.interp function takes an ordered 
-    # vector of decreasing lambda.betas whereeas the columns of the nbeta matrix correspond to the
-    # order of the lambda.beta vector. This is not working properly because the beta lambdas are not decreasing
-    # by defualt and are almost a function of lambda gamma. 
-    # This function currently only works for either lambda min or lambda 1.se
-    
-    lam.beta.left.original <- which(lambda.beta==lambda.beta[order(lambda.beta, decreasing = T)][lamlist.beta$left])
-    lam.beta.right.original <- which(lambda.beta==lambda.beta[order(lambda.beta, decreasing = T)][lamlist.beta$right])
-    
-    nbeta.main.effects = nbeta[c("(Intercept)",object$main.effect.names), lam.beta.left.original, drop = FALSE] %*% Diagonal(x = lamlist.beta$frac) + 
-      nbeta[c("(Intercept)",object$main.effect.names), lam.beta.right.original, drop = FALSE] %*% Diagonal(x = 1 - 
-                                                          lamlist.beta$frac)
-    
-    cbind(nbeta[c("(Intercept)",object$main.effect.names),lam.beta.left.original, drop=F],nbeta.main.effects,
-    nbeta[c("(Intercept)",object$main.effect.names),lam.beta.right.original, drop=F])
-    
-    ngamma.interaction.effects = nbeta[object$interaction.names, lamlist.gamma$left, drop = FALSE] %*% Diagonal(x = lamlist.gamma$frac) + 
-      nbeta[object$interaction.names, lamlist.gamma$right, drop = FALSE] %*% Diagonal(x = 1 - 
-                                                                                       lamlist.gamma$frac)
-    
-    # cbind(nbeta[object$interaction.names,"s5", drop=F], ngamma.interaction.effects,
-    #       nbeta[object$interaction.names, "s4", drop=F])
-    
-    nbeta <- convert2(nbeta.main.effects, ngamma.interaction.effects, 
-                      object$main.effect.names, object$interaction.names,
-                      intercept = nbeta.main.effects["(Intercept)",])
-    dimnames(nbeta)[[2]] = list(paste(seq_along(s.beta)))
-  }
-  
-  if (type == "coefficients") {
-    # if (is.null(s)) return(list(coef = nbeta, lambda.beta = lambda.beta, lambda.gamma = lambda.gamma)) else 
-    #   return(list(coef = nbeta[,s, drop=F], lambda.beta = lambda.beta[s], lambda.gamma = lambda.gamma[s]))
+  # this is the default returned by coef.shim i.e. any object of class shim
+  # it will return all tuning parameters (including those that didnt converge)
+  if (type == "coefficients" && is.null(s)) {
     return(nbeta)
   }
   
-  if (type == "nonzero") 
-    return(nonzero(nbeta[-1, , drop = FALSE], bystep = TRUE))
-  if (inherits(newx, "sparseMatrix")) 
+  if (type == "coefficients" && !is.null(s)) {
+    return(nbeta[ , s, drop = F])
+  }
+  
+  if (type == "nonzero") {
+    nbeta = rbind(a0, object$beta, object$alpha)
+    return(list(main = nonzero(nbeta[object$main.effect.names, , drop = FALSE], bystep = TRUE),
+                interaction = nonzero(nbeta[object$interaction.names, , drop = FALSE], bystep = TRUE)))
+  }
+  
+  if (inherits(newx, "sparseMatrix")) {   
     newx = as(newx, "dgCMatrix")
-  nfit = as.matrix(cbind2(1, newx) %*% nbeta) 
-  # if (object$offset) {
-  #     if (missing(offset)) 
-  #         stop("No offset provided for prediction, yet used in fit of glmnet", 
-  #              call. = FALSE)
-  #     if (is.matrix(offset) && dim(offset)[[2]] == 2) 
-  #         offset = offset[, 2]
-  #     nfit = nfit + array(offset, dim = dim(nfit))
-  # }
-  nfit
+  }
+  
+  # this is used by the cv_lspath function to calculate predicted values
+  # which will subsequently be used for calculating MSE for each fold
+  if (type == "link") {
+   
+    nfit = as.matrix(cbind2(1, newx) %*% nbeta) 
+    
+    return(nfit)
+  }
+  
 }
 
-coef.shim <- function (object, s.beta = NULL, s.gamma = NULL) {
-    predict(object, s.beta = s.beta, s.gamma = s.gamma, type = "coefficients")
+coef.shim <- function (object, s = NULL) {
+    predict(object, s = s, type = "coefficients")
 }
 
-
+#' @param object object of class cv.shim from cv.shim function 
+coef.cv.shim <- function(object, 
+                         #s.beta = c("lambda.1se.beta", "lambda.min.beta"), 
+                         #s.gamma = c("lambda.1se.gamma", "lambda.min.gamma")
+                         s = c("lambda.1se", "lambda.min"), ...) {
+  
+  if (is.numeric(s) || s %ni% c("lambda.1se", "lambda.min")) stop("s must be in lambda.1se or lambda.min") 
+  
+  s = match.arg(s)
+  
+  lambda = names(which(object$glmnet.fit$tuning.parameters["lambda.beta",]==cvfit[[paste0(s,".beta")]] & 
+                         object$glmnet.fit$tuning.parameters["lambda.gamma",]==cvfit[[paste0(s,".gamma")]]))
+  
+  coef(object$glmnet.fit, s = lambda, ...)
+}
 
 # coef(res2, s=c("s10","s11"))
 # predict(res2, type = "nonzero")
@@ -1623,7 +1620,7 @@ coef.shim <- function (object, s.beta = NULL, s.gamma = NULL) {
 # predict(res2, type = "link", newx = X)
 
 
-plot.shim <- function (x, xvar = c("norm", "lambda", "dev"), label = T, 
+plot.shim <- function(x, xvar = c("norm", "lambda", "dev"), label = T, 
           ...) {
     xvar = match.arg(xvar)
     plotShim(x$beta, 
@@ -1635,7 +1632,7 @@ plot.shim <- function (x, xvar = c("norm", "lambda", "dev"), label = T,
 }
 
 
-plotShim <- function (beta, norm, 
+plotShim <- function(beta, norm, 
                       #lambda, 
                       df, 
                       #dev, 
@@ -1740,6 +1737,7 @@ cv.shim <- function(x, y, main.effect.names, interaction.names,
                      intercept=TRUE, normalize=TRUE,
                      nlambda.gamma = 5, 
                      nlambda.beta = 20,
+                     nlambda = 100,
                      cores = 1,
                      #x, y, offset = NULL, 
                      #lambda = NULL,
@@ -1781,6 +1779,7 @@ cv.shim <- function(x, y, main.effect.names, interaction.names,
                                          main.effect.names = main.effect.names,
                                          interaction.names = interaction.names,
                                          lambda.beta = lambda.beta, lambda.gamma = lambda.gamma,
+                                         nlambda = nlambda,
                                          threshold = threshold, max.iter = max.iter, 
                                          initialization.type = initialization.type,
                                          nlambda.gamma = nlambda.gamma, 
@@ -1788,8 +1787,9 @@ cv.shim <- function(x, y, main.effect.names, interaction.names,
     
     glmnet.object$call = glmnet.call
     #glmnet.object$nlambda.beta
-    nz = sapply(predict(glmnet.object, type = "nonzero"), 
-                     length)
+    nz.main = sapply(predict(glmnet.object, type = "nonzero")[["main"]], length)
+    nz.interaction = sapply(predict(glmnet.object, type = "nonzero")[["interaction"]], length)
+    
     if (missing(foldid)) 
         foldid = sample(rep(seq(nfolds), length = N)) else nfolds = max(foldid)
     if (nfolds < 3) 
@@ -1811,6 +1811,7 @@ cv.shim <- function(x, y, main.effect.names, interaction.names,
                                  interaction.names = interaction.names,
                                  lambda.beta = glmnet.object$lambda.beta, 
                                  lambda.gamma = glmnet.object$lambda.gamma,
+                                 nlambda = glmnet.object$nlambda,
                                  threshold = threshold, 
                                  max.iter = max.iter , 
                                  initialization.type = initialization.type,
@@ -1832,6 +1833,7 @@ cv.shim <- function(x, y, main.effect.names, interaction.names,
                                                 interaction.names,
                                                 lambda.beta = glmnet.object$lambda.beta, 
                                                 lambda.gamma = glmnet.object$lambda.gamma,
+                                                nlambda = glmnet.object$nlambda,
                                                 threshold, max.iter , initialization.type,
                                                 nlambda.gamma, nlambda.beta, cores = 1)
         }
@@ -1843,12 +1845,12 @@ cv.shim <- function(x, y, main.effect.names, interaction.names,
     lambda.beta = glmnet.object$lambda.beta
     lambda.gamma = glmnet.object$lambda.gamma
     
-    cvstuff = do.call(cv_lspath, list(outlist = outlist, lambda.beta = lambda.beta, 
-                                      lambda.gamma = lambda.gamma, 
+    cvstuff = do.call(cv_lspath, list(outlist = outlist, 
                                       x = x, y = y, foldid = foldid, 
+                                      nlambda = glmnet.object$nlambda,
                                       nlambda.beta = glmnet.object$nlambda.beta,
-                                      nlambda.gamma = glmnet.object$nlambda.gamma,
-                                      nlambda = glmnet.object$nlambda))
+                                      nlambda.gamma = glmnet.object$nlambda.gamma))
+    
     cvm = cvstuff$cvm
     cvsd = cvstuff$cvsd
     # the following checks is any of the tunining parameter pairs
@@ -1862,28 +1864,47 @@ cv.shim <- function(x, y, main.effect.names, interaction.names,
         cvm = cvm[!nas]
         cvsd = cvsd[!nas]
         # this is the total number of non-zero parameters (both betas and alphas)
-        nz = nz[!nas]
+        nz.main = nz.main[!nas]
+        nz.interaction = nz.interaction[!nas]
     }
     cvname = cvstuff$name
+    
+    df <- as.data.frame(cbind(lambda.beta = lambda.beta, 
+          lambda.gamma = lambda.gamma,
+          mse = cvm,
+          upper = cvm+cvsd,
+          lower = cvm-cvsd,
+          nz.main = nz.main,
+          nz.interaction = nz.interaction,
+          lg = round(log(lambda.gamma),2)))
+    
     out = list(lambda.beta = lambda.beta, lambda.gamma = lambda.gamma, 
                cvm = cvm, cvsd = cvsd, cvup = cvm + cvsd, 
-               cvlo = cvm - cvsd, nzero = nz, name = cvname, 
-               glmnet.fit = glmnet.object, converged = cvstuff$converged)
+               cvlo = cvm - cvsd, nz.main = nz.main, name = cvname,
+               nz.interaction = nz.interaction,
+               glmnet.fit = glmnet.object, converged = cvstuff$converged, cvm.mat.all = cvstuff$cvm.mat.all,
+               df = df)
     # if (keep) 
     #     out = c(out, list(fit.preval = cvstuff$fit.preval, foldid = foldid))
     lamin.beta = if (cvname == "AUC") 
         getmin(lambda.beta, -cvm, cvsd, type = "beta") else getmin(lambda.beta, cvm, cvsd, type = "beta")
     lamin.gamma = if (cvname == "AUC") 
-        getmin(lambda.gamma, -cvm, cvsd, type = "gamma") else getmin(lambda.gamma, cvm, cvsd, type = "gamma")
-    obj = c(out, as.list(lamin.beta), as.list(lamin.gamma), as.list(glmnet.object$lambda.beta),
-            as.list(glmnet.object$lambda.gamma))
+         getmin(lambda.gamma, -cvm, cvsd, type = "gamma") else getmin(lambda.gamma, cvm, cvsd, type = "gamma")
+    obj = c(out, as.list(lamin.beta), as.list(lamin.gamma)) #, as.list(glmnet.object$lambda.beta),
+            #as.list(glmnet.object$lambda.gamma))
     class(obj) = "cv.shim"
     obj
 }
 
+#' @param nlambda total number of tuning parameter pairs. This includes those 
+#'   pairs of tuning parameters that didn't converge in the CV folds. The output
+#'   of this function only returns values for those tuning paramters that DID 
+#'   converge
+#' @param outlist list containing results from cv.shim function. each element of
+#'   the list is a run of shim_multiple_faster for each CV fold
 
-cv_lspath <- function(outlist, lambda.beta, lambda.gamma, x, y, foldid,
-                      nlambda.beta, nlambda.gamma, nlambda) {
+cv_lspath <- function(outlist, x, y, foldid,
+                      nlambda, nlambda.beta, nlambda.gamma) {
     #   typenames <- c(misclass = "Misclassification Error", loss = "Margin Based Loss")
     #   if (pred.loss == "default") 
     #     pred.loss <- "loss"
@@ -1913,7 +1934,7 @@ cv_lspath <- function(outlist, lambda.beta, lambda.gamma, x, y, foldid,
         #preds <- x[which, , drop = FALSE]  %*% rbind2(fitobj$beta, fitobj$alpha)
         preds <- predict(fitobj, newx = x[which, ,drop = F], type = "link")
         #preds <- predict(fitobj, x[which, , drop = FALSE], type = "link")
-        nlami <- nlambda
+        nlami <- fitobj$nlambda
         predmat[which, seq(nlami)] <- preds
         nlams[i] <- nlami
         converged[i,] <- fitobj$converged
@@ -1925,8 +1946,10 @@ cv_lspath <- function(outlist, lambda.beta, lambda.gamma, x, y, foldid,
     cvraw <- cvob$cvraw
     N <- cvob$N
     cvm <- apply(cvraw, 2, mean, na.rm = TRUE)
+    cvm_mat_all <- matrix(cvm, ncol = nlambda.gamma, nrow = nlambda.beta, byrow = T)
+    
     cvsd <- sqrt(apply(scale(cvraw, cvm, FALSE)^2, 2, mean, na.rm = TRUE)/(N - 1))
-    list(cvm = cvm, cvsd = cvsd, name = "MSE", converged = conv)
+    list(cvm = cvm, cvsd = cvsd, name = "MSE", converged = conv, cvm.mat.all = cvm_mat_all)
 }
 
 cvcompute <- function(mat, foldid, nlams) {
@@ -1952,8 +1975,12 @@ getmin <- function (lambda, cvm, cvsd, type) {
     semin = (cvm + cvsd)[idmin]
     idmin = cvm <= semin
     lambda.1se = max(lambda[idmin], na.rm = TRUE)
-    res <- list(lambda.min = lambda.min, lambda.1se = lambda.1se)
-    names(res) <- c(paste0("lambda.min.",type),paste0("lambda.1se.",type) )
+    # this is to get the index of the tuning parameter pair which is labelled by "s"
+    # e.g. "s25" corresponds to the 25th pair of tuning parameters
+    lambda.min.name = gsub(".beta","",names(lambda.min))
+    lambda.1se.name = gsub(".beta","",names(lambda.1se))
+    res <- list(lambda.min = lambda.min, lambda.min.name, lambda.1se = lambda.1se, lambda.1se.name )
+    names(res) <- c(paste0("lambda.min.",type),"lambda.min.name", paste0("lambda.1se.",type),"lambda.1se.name")
     res
 }
 
@@ -1979,29 +2006,100 @@ lambda.interp <- function (lambda, s) {
   list(left = left, right = right, frac = sfrac)
 }
 
-plot.cv.shim <- function (x, sign.lambda = 1, ...) {
+plot.cv.shim <- function(x, sign.lambda = 1, ...) {
+  
+  pckg = try(require(ggplot2))
+  if(!pckg) {
+    cat("Installing 'ggplot2' from CRAN\n")
+    getPckg("ggplot2")
+    require(ggplot2)
+  }
+  
+  pckg = try(require(latex2exp))
+  if(!pckg) {
+    cat("Installing 'latex2exp' from CRAN\n")
+    getPckg("latex2exp")
+    require(latex2exp)
+  }
+  
+  pckg = try(require(data.table))
+  if(!pckg) {
+    cat("Installing 'data.table' from CRAN\n")
+    getPckg("data.table")
+    require(data.table)
+  }
+
   cvobj = x
-  xlab = "log(Lambda)"
-  if (sign.lambda < 0) 
-    xlab = paste("-", xlab, sep = "")
-  plot.args = list(x = sign.lambda * log(cvobj$lambda.beta), y = cvobj$cvm, 
-                   #ylim = range(cvobj$cvup, cvobj$cvlo), 
-                   ylim = quantile(c(cvobj$cvlo, cvobj$cvup), probs = c(0,0.85)),
-                   xlab = xlab, ylab = cvobj$name, 
-                   type = "n")
-  new.args = list(...)
-  if (length(new.args)) 
-    plot.args[names(new.args)] = new.args
-  do.call("plot", plot.args)
-  error.bars(sign.lambda * log(cvobj$lambda.beta), cvobj$cvup, 
-             cvobj$cvlo, width = 0.01, col = "darkgrey")
-  points(sign.lambda * log(cvobj$lambda.beta), cvobj$cvm, pch = 20, 
-         col = "red")
-  axis(side = 3, at = sign.lambda * log(cvobj$lambda.beta), labels = paste(cvobj$nz), 
-       tick = FALSE, line = 0)
-  abline(v = sign.lambda * log(cvobj$lambda.min.beta), lty = 3)
-  abline(v = sign.lambda * log(cvobj$lambda.1se.beta), lty = 3)
-  invisible()
+  
+  d <- cvobj$df %>% 
+    as.data.table %>% 
+    mutate(lambda.min.beta = cvobj$lambda.min.beta,
+           lambda.min.gamma = cvobj$lambda.min.gamma, 
+           lambda.1se.beta = cvobj$lambda.1se.beta,
+           lambda.1se.gamma = cvobj$lambda.1se.gamma)  
+  
+  # needed to get colored lines
+  d2 <- d[(lambda.beta==lambda.min.beta & lambda.gamma == lambda.min.gamma) | 
+            (lambda.beta==lambda.1se.beta & lambda.gamma == lambda.1se.gamma)] %>% 
+    melt(measure.vars = c("lambda.min.beta","lambda.1se.beta"))
+  
+  d2[,variable:=gsub(".beta", "",variable)]
+  
+  appender <- function(string) TeX(paste("$\\log(\\lambda_{\\gamma}) = $",string))  
+  
+  p <- ggplot(d, 
+         aes(log(lambda.beta), 
+             ymin = lower, 
+             ymax = upper)) 
+  
+  l <- ggplot_build(p)
+  p + 
+    geom_errorbar(color = "grey", width = 0.5) + 
+    geom_point(aes(x = log(lambda.beta), y = mse), colour = "red") +
+    theme_bw() + 
+    ylim(c(min(d$lower) - 10 , max(d$upper) + 500)) + 
+    facet_wrap(~lg, scales = "fixed",
+               #switch = "x",
+               labeller = as_labeller(appender, default = label_parsed)) + 
+    theme(strip.background = element_blank(), 
+          strip.text.x = element_text(size = rel(1.3)),
+          legend.position = "bottom") + 
+    xlab(TeX("$\\log(\\lambda_{\\beta})$")) + 
+    geom_vline(data = d2[lambda.gamma==lambda.1se.gamma & variable == "lambda.1se"], 
+               aes(xintercept = log(value), colour = variable), size = 0.7, linetype = 1) +
+    geom_vline(data = d2[lambda.gamma==lambda.min.gamma & variable == "lambda.min"], 
+               aes(xintercept = log(value), colour = variable),size = 0.7, linetype = 1) + 
+    scale_color_discrete(name="") + 
+    geom_text(aes(label = nz.main, x = log(lambda.beta), y = Inf, vjust = 1)) +
+    geom_text(aes(label = nz.interaction, x = log(lambda.beta), y = Inf,
+                  vjust = 2)) +
+    ylab(c("10 fold CV MSE")) + 
+    coord_cartesian(ylim = c(l$panel$ranges[[1]]$y.range[1], l$panel$ranges[[1]]$y.range[2]*1.1))
+
+  # cvobj = x
+  # xlab = "log(Lambda)"
+  # if (sign.lambda < 0) 
+  #   xlab = paste("-", xlab, sep = "")
+  # plot.args = list(x = sign.lambda * log(cvobj$lambda.beta), y = cvobj$cvm, 
+  #                  ylim = range(cvobj$cvup, cvobj$cvlo), 
+  #                  #ylim = quantile(c(cvobj$cvlo, cvobj$cvup), probs = c(0,0.85)),
+  #                  xlab = xlab, ylab = cvobj$name, 
+  #                  type = "n")
+  # new.args = list(...)
+  # if (length(new.args)) 
+  #   plot.args[names(new.args)] = new.args
+  # do.call("plot", plot.args)
+  # error.bars(sign.lambda * log(cvobj$lambda.beta), cvobj$cvup, 
+  #            cvobj$cvlo, width = 0.01, col = "darkgrey")
+  # points(sign.lambda * log(cvobj$lambda.beta), cvobj$cvm, pch = 20, 
+  #        col = "red")
+  # axis(side = 3, at = sign.lambda * log(cvobj$lambda.beta), labels = paste("main:",cvobj$nz.main), 
+  #      tick = FALSE, line = 1)
+  # axis(side = 3, at = sign.lambda * log(cvobj$lambda.beta), labels = paste("interaction:",cvobj$nz.interaction), 
+  #      tick = FALSE, line = 0)
+  # abline(v = sign.lambda * log(cvobj$lambda.min.beta), lty = 3)
+  # abline(v = sign.lambda * log(cvobj$lambda.1se.beta), lty = 3)
+  # invisible()
 }
 
 error.bars <- function (x, upper, lower, width = 0.02, ...) {
@@ -2013,29 +2111,9 @@ error.bars <- function (x, upper, lower, width = 0.02, ...) {
   range(upper, lower)
 }
 
-coef.cv.shim <- function (object, 
-                          s.beta = c("lambda.1se.beta", "lambda.min.beta"), 
-                          s.gamma = c("lambda.1se.gamma", "lambda.min.gamma"), ...) {
-  
-  # s.beta can also be in "s1.beta", "s2.beta", ...
-  # s.gamma can also be in "s1.gamma", "s2.gamma",... 
-  
-  if (is.numeric(s.beta) && is.numeric(s.gamma)) { 
-    lambda.beta = s.beta
-    lambda.gamma = s.gamma
-  } else if (s.beta %in% paste0("s",1:object$glmnet.fit$nlambda,".beta") && 
-             s.gamma %in% paste0("s",1:object$glmnet.fit$nlambda,".gamma")) {
-    lambda.beta = object[[s.beta]]
-    lambda.gamma = object[[s.gamma]]
-  } else if (is.character(s.beta) && is.character(s.gamma)) {
-    s.b = match.arg(s.beta)
-    s.g = match.arg(s.gamma)
-    lambda.beta = object[[s.b]]
-    lambda.gamma = object[[s.g]]
-  } else stop("Invalid form for s.beta and s.gamma")
-  
-  coef(object$glmnet.fit, s.beta = lambda.beta, s.gamma = lambda.gamma, ...)
-}
+
+
+
 
 
 #' Fit the Strong Heredity Interactions Model with Fixed Betas

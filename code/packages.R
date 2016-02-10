@@ -90,3 +90,17 @@ if(!pckg) {
   require(doMC)
 }
 
+pckg = try(require(ggplot2))
+if(!pckg) {
+  cat("Installing 'ggplot2' from CRAN\n")
+  getPckg("ggplot2")
+  require(ggplot2)
+}
+
+pckg = try(require(latex2exp))
+if(!pckg) {
+  cat("Installing 'latex2exp' from CRAN\n")
+  getPckg("latex2exp")
+  require(latex2exp)
+}
+

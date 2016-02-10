@@ -18,8 +18,8 @@ source("https://raw.githubusercontent.com/noamross/noamtools/master/R/proftable.
 #source("~/Dropbox/Winter 2014/MATH 783/Assignments/A3/multiplot.R")
 source("functions.R")
 library(ggrepel)
-# library(latex2exp)
-# library(gridExtra)
+library(latex2exp)
+library(gridExtra)
 library(cowplot)
 
 
@@ -29,21 +29,78 @@ library(cowplot)
 require(doMC)
 registerDoMC(cores=10)
 
+adaptive.weights <- ridge_weights(x = X, y = Y, 
+                                  main.effect.names = main_effect_names, 
+                                  interaction.names = interaction_names)
+
+lgg <- lambda_sequence(x = X[,interaction_names,drop=F], 
+                       y = Y, 
+                       weights = adaptive.weights[interaction_names,,drop=F],
+                       #weights = rep(1, length(interaction_names)),
+                       nlambda = 6);lg
+
+lbb <- lambda_sequence(x = X[,main_effect_names,drop=F], 
+                      y = Y, 
+                      weights = adaptive.weights[main_effect_names,,drop=F],
+                      #weights = rep(1, length(main_effect_names)),
+                      nlambda = 10);lb
+
+lg <- rep(lgg, each = length(lbb));lg
+lb <- rep(lbb, times = length(lgg));lb
+
 system.time(cvfit <- cv.shim(x = X, y = Y, main.effect.names = main_effect_names,
                    interaction.names = interaction_names,
-                   lambda.beta = NULL , lambda.gamma = NULL,
-                   threshold = 1e-4 , max.iter = 200 , initialization.type = "ridge",
+                   lambda.beta = lb , 
+                   lambda.gamma = lg,
+                   threshold = 1e-4 , max.iter = 200 , 
+                   initialization.type = "ridge",
                    intercept = TRUE, normalize = TRUE,
-                   nlambda.gamma = 5, nlambda.beta = 20, cores = 1,
+                   nlambda.gamma = 6, nlambda.beta = 10, cores = 1,
+                   nlambda = 60,
                    type.measure = c("mse", "deviance", "class", "auc", "mae"), 
                    nfolds = 10, grouped = TRUE, keep = FALSE, parallel = TRUE))
 
 
 plot(cvfit)
+
 coef(cvfit)
+
+
+
+
+
+
+
+# not used ----------------------------------------------------------------
+
+
+
+
+
+
+
+
+matrix(c(1,2,3,4,5,6), ncol = 3, byrow = T)
+cvfit$converged
+cbind(coef(cvfit, s = "lambda.min"),coef(cvfit, s = "lambda.1se")) 
+cvfit$lambda.min.gamma
+names(cvfit)
 cvfit$lambda.min.beta
+cvfit$glmnet.fit$tuning
+
+s= "lambda.min"
+a <- which(cvfit$glmnet.fit$tuning.parameters["lambda.beta",]==cvfit$lambda.min.beta & 
+             cvfit$glmnet.fit$tuning.parameters["lambda.gamma",]==cvfit$glmnet.fit$tuning.parameters[2,9])
+intersect(a,b)
+names(a)
+
+cvfit$glmnet.fit$tuning.parameters[,9, drop = F]
 
 
+cvfit[[paste0(s,".beta")]]
+
+
+names(cvfit)
 cvfit$glmnet.fit$converged
 cvfit$glmnet.fit$beta[,which(cvfit$glmnet.fit$converged==1)]
 cvfit$glmnet.fit$alpha[,which(cvfit$glmnet.fit$converged==1)]
@@ -54,18 +111,190 @@ cvfit$lambda.beta[which(cvfit$glmnet.fit$converged==1)] %>% unique() %>% length
 cvfit$lambda.gamma[which(cvfit$glmnet.fit$converged==1)] %>% unique %>% length()
 
 which(cvfit$lambda.beta==cvfit$lambda.1se.beta)
-which(cvfit$lambda.gamma==cvfit$lambda.1se.gamma)[1]
+which(cvfit$lambda.gamma==cvfit$lambda.1se.gamma)
 
 (cvfit$converged!=10) %>% sum
 
-coef(cvfit, s.beta = "s76.beta", s.gamma = "s76.gamma")
+cbind(coef(cvfit, s = "lambda.min"),
+      coef(cvfit, s = "lambda.1se"))
+      
+cbind(coef(cvfit$glmnet.fit, s = "s30"),
+      coef(cvfit, s = "lambda.1se"))
+
+cvfit$glmnet.fit %>% coef %>% dim
+      
+coef(cvfit, s.beta = "s30.beta", s.gamma = "s1.gamma") 
+
+library(ggplot2)
+
+cvfit$glmnet.fit$lambda.beta %>% length()
+
+
+cbind(lambda.beta = cvfit$lambda.beta, 
+      lambda.gamma = cvfit$lambda.gamma,
+      mse = cvfit$cvm,
+      upper = cvfit$cvup,
+      lower = cvfit$cvlo,
+      non.zero = cvfit$nz)  
+
+library(dplyr)
+d <- cvfit$df %>% 
+  as.data.table %>% 
+  mutate(lg = round(log(lambda.gamma),2))
+
+d <- cvfit$df %>% 
+  as.data.table %>% 
+  mutate(lg = round(log(lambda.gamma),2), lambda.min.beta = cvfit$lambda.min.beta,
+         lambda.min.gamma = cvfit$lambda.min.gamma, lambda.1se.beta = cvfit$lambda.1se.beta,
+         lambda.1se.gamma = cvfit$lambda.1se.gamma)  
+
+head(d)
+log(cvfit$lambda.min.beta)
+log(cvfit$lambda.min.gamma)
+dput(d)
+
+f <- devtools::source_gist("https://gist.github.com/sahirbhatnagar/ed3caf50247cae8e3e1c",
+                           sha1 = "3073e2ea147ce2818fa4e8841c6efa227378e1aa")$value
+
+# needed to get colored lines
+d2 <- d[(lambda.beta==lambda.min.beta & lambda.gamma == lambda.min.gamma) | 
+          (lambda.beta==lambda.1se.beta & lambda.gamma == lambda.1se.gamma)] %>% 
+  melt(measure.vars = c("lambda.min.beta","lambda.1se.beta"))
+
+d2[,variable:=gsub(".beta", "",variable)]
+
+appender <- function(string) TeX(paste("$\\log(\\lambda_{\\gamma}) = $",string))  
+
+p <- ggplot(d, 
+       aes(log(lambda.beta), 
+           ymin = lower, 
+           ymax = upper)) + 
+  geom_errorbar(color = "grey", width = 0.5) + 
+  geom_point(aes(x = log(lambda.beta), y = mse), colour = "red") +
+  theme_bw() + 
+  ylim(c(min(d$lower) , max(d$upper) )) + 
+  facet_wrap(~lg, scales = "fixed",
+             #switch = "x",
+             labeller = as_labeller(appender, default = label_parsed)) + 
+  theme(strip.background = element_blank(), 
+        strip.text.x = element_text(size = rel(1.3)),
+        legend.position = "bottom") + 
+  xlab(TeX("$\\log(\\lambda_{\\beta})$")) + 
+  geom_vline(data = d2[lambda.gamma==lambda.1se.gamma & variable == "lambda.1se"], 
+             aes(xintercept = log(value), colour = variable), size = 0.7, linetype = 1) +
+  geom_vline(data = d2[lambda.gamma==lambda.min.gamma & variable == "lambda.min"], 
+             aes(xintercept = log(value), colour = variable),size = 0.7, linetype = 1) + 
+  scale_color_discrete(name="") + 
+  geom_text(aes(label = nz.main, x = log(lambda.beta), y = Inf, vjust = 1)) +
+  geom_text(aes(label = nz.interaction, x = log(lambda.beta), y = Inf,
+                       vjust = 2)) +
+  ylab(c("10 fold CV MSE"))
+
+
+#gt <- ggplot_gtable(ggplot_build(p))
+
+l <- ggplot_build(p)
+
+
+
+
+p + ylim(c(l$panel$ranges[[1]]$y.range[1], l$panel$ranges[[1]]$y.range[2]*1.1))
+
+l$panel$ranges[[1]]$y.range[2] <- l$panel$ranges[[1]]$y.range[2]*1.1
+
+l$panel$
+
+dev.off()
+
+
+plot(cvfit)
+
+
+gt$layout$clip[grep("panel",gt$layout$name)] <- "off"
+
+names(gt)
+
+names(l)
+
+
+
+
+gt$layout$clip
+  
+  
+  
+grep("panel",gt$layout$name)
+
+grid::grid.draw(gt)
+
+gt$layout
+
+d
+  
+  # geom_vline(data = d[lambda.beta==lambda.min.beta & lambda.gamma == lambda.min.gamma], 
+  #            aes(xintercept = log(lambda.min.beta)), linetype = "longdash", colour="1") + 
+  # geom_vline(data = d[lambda.beta==lambda.1se.beta & lambda.gamma == lambda.1se.gamma], 
+  #            aes(xintercept = log(lambda.1se.beta)), linetype = "longdash", colour="2") +
+  # scale_colour_manual(values=c("red", "blue"))
+
+names(d)
+
+
+
+
+
+
+
+
+
+
+# Quickly transform a function operating on character vectors to a
+# labeller function:
+appender <- function(string) paste0(string,"lp")
+p + facet_wrap(~am, labeller = as_labeller(appender))
+
+global_labeller <- labeller(
+    lambda.gamma = round(cvfit$df[,"lambda.gamma"],2),
+    .default = label_both
+  )
+
+
+as.data.frame(cvfit$df) %>% melt()
+
+
 coef(cvfit, s.beta = "lambda.min.beta", s.gamma = "lambda.min.gamma")
 coef(cvfit, s.beta = "lambda.1se.beta", s.gamma = "lambda.1se.gamma")
+
+cvfit$lambda.min.beta %>% log
+cvfit$lambda.beta %>% length
+cvfit$glmnet.fit$beta %>% colnames
+
+class(cvfit)
+cvfit$lambda.beta %>% names
+
+cvfit$converged
+
 names(cvfit)
 plot(cvfit$cvm[cvfit$cvm<1e4])
 length(cvfit$cvm)
 d <- coef(cvfit$glmnet.fit) %>% as.matrix()
 apply(coef(cvfit$glmnet.fit), 2, nonzero)
+
+d[nonzero(d[,"s30", drop=F]),"s30", drop=F]
+
+lambda <- matrix(nrow = 2, ncol = 100, 
+                 dimnames = list(c("lambda.beta", "lambda.gamma"), 
+                                 paste0("s",1:100)))
+
+cvfit$glmnet.fit$lambda.beta %>% names %>% gsub(".beta","",.) 
+
+g = "lambda.1se"
+cvfit[[paste0(g,".beta")]]
+cvfit$lambda.1se.beta
+lambda[1,] <- cvfit$glmnet.fit$lambda.beta
+matrix(c(cvfit$glmnet.fit$lambda.beta,
+       cvfit$glmnet.fit$lambda.gamma), 
+       nrow= 2, ncol = 100)
 
 # plot for Celia  ---------------------------------------------------------
 

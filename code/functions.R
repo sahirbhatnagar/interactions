@@ -821,20 +821,13 @@ shim_multiple <- function(x, y, main.effect.names, interaction.names,
                           nlambda.beta = 20,
                           cores = 2) {
   
-# <<<<<<< HEAD
+
 #   x = X; y = Y; main.effect.names = main_effect_names;
 #   interaction.names = interaction_names;
 #   lambda.beta = NULL ; lambda.gamma = NULL
 #   threshold = 1e-5 ; max.iter = 500 ; initialization.type = "ridge";
 #   nlambda.gamma = 5; nlambda.beta = 10; cores = 2
-  
-# =======
-  # x = X; y = Y; main.effect.names = main_effect_names;
-  # interaction.names = interaction_names;
-  # lambda.beta = NULL ; lambda.gamma = NULL
-  # threshold = 1e-5 ; max.iter = 500 ; initialization.type = "ridge";
-  # nlambda.gamma = 10; nlambda.beta = 20; cores = 2
-# >>>>>>> f5d2135d490d691260535ba052df74cb762f0330
+
   if (is.null(lambda.gamma) & is.null(lambda.beta)) {
     
     (tuning_params <- shim_once(x = x, y = y, 
@@ -1947,7 +1940,7 @@ cv_lspath <- function(outlist, x, y, foldid,
     N <- cvob$N
     cvm <- apply(cvraw, 2, mean, na.rm = TRUE)
     cvm_mat_all <- matrix(cvm, ncol = nlambda.gamma, nrow = nlambda.beta, byrow = T)
-    
+
     cvsd <- sqrt(apply(scale(cvraw, cvm, FALSE)^2, 2, mean, na.rm = TRUE)/(N - 1))
     list(cvm = cvm, cvsd = cvsd, name = "MSE", converged = conv, cvm.mat.all = cvm_mat_all)
 }

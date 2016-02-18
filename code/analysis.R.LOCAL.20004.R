@@ -435,7 +435,6 @@ res <- shim(x = X, y = Y, main.effect.names = main_effect_names,
             initialization.type = "ridge")
 
 
-
 library(doParallel)
 library(foreach)
 library(parallel)
@@ -457,9 +456,7 @@ x = X, y = Y, main.effect.names = main_effect_names,
                                           threshold = 1e-5, max.iter = 500, 
                                           initialization.type = "ridge")
 
-
 res$Q[complete.cases(res$Q),]
-
 
 res2$beta[complete.cases(res2$beta)]
 

@@ -8,3 +8,6 @@
 *.blg
 .Rproj.user
 figure*
+.Rhistory
+coexpression/*
+coexpression

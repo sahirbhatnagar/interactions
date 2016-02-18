@@ -431,10 +431,18 @@ true.betas.and.gammas <- convert(true.betas.and.alphas, main_effect_names, inter
 
 res <- shim(x = X, y = Y, main.effect.names = main_effect_names, 
             interaction.names = interaction_names,
+<<<<<<< HEAD
             lambda.beta = 1, lambda.gamma = 0.5, threshold = 1e-5, max.iter = 500, 
             initialization.type = "ridge")
 
-
+=======
+            lambda.beta = 0.5, lambda.gamma = 2, threshold = 1e-5, max.iter = 500, 
+            initialization.type = "univariate")
+res$beta
+Rprof()
+summaryRprof(tmp)
+proftable(tmp)
+>>>>>>> master
 
 library(doParallel)
 library(foreach)
@@ -457,9 +465,11 @@ x = X, y = Y, main.effect.names = main_effect_names,
                                           threshold = 1e-5, max.iter = 500, 
                                           initialization.type = "ridge")
 
-
+<<<<<<< HEAD
 res$Q[complete.cases(res$Q),]
-
+=======
+res$beta[,complete.cases(t(res$beta))]
+>>>>>>> master
 
 res2$beta[complete.cases(res2$beta)]
 
